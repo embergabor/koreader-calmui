@@ -263,11 +263,16 @@ end
 
 function QuietUI:init()
     applyDefaults()
+    require("quietui_remote").install()
     if self.ui.document then
         self:initReader()
     else
         self:initLibrary()
     end
+end
+
+function QuietUI:onSuspend()
+    require("quietui_remote").stop()
 end
 
 function QuietUI:runAction(action)

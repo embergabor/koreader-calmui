@@ -6,3 +6,4 @@ src/
 .DS_Store
 dict/
 options/
+.kobo-address

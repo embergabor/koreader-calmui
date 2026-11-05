@@ -1,5 +1,5 @@
 --[[--
-The library's cogwheel: a small sheet with Wi-Fi, sleep timing, reading statistics,
+The library's cogwheel: a small sheet with Wi-Fi, updates over Wi-Fi, sleep timing, reading statistics,
 calibre wireless and the KOReader sync account. Tap outside it or Done to close.
 ]]
 
@@ -15,6 +15,7 @@ local LeftContainer = require("ui/widget/container/leftcontainer")
 local LineWidget = require("ui/widget/linewidget")
 local MultiInputDialog = require("ui/widget/multiinputdialog")
 local OverlapGroup = require("ui/widget/overlapgroup")
+local Remote = require("quietui_remote")
 local RightContainer = require("ui/widget/container/rightcontainer")
 local Sync = require("quietui_sync")
 local UI = require("quietui_ui")
@@ -112,11 +113,53 @@ function Settings:buildWifi()
         if opt.id then
             NetworkMgr:toggleWifiOn(after, false, true)
         else
+            Remote.stop()
             NetworkMgr:toggleWifiOff(after, true)
         end
         self:refresh()
     end))
     return self:row(_("Wi-Fi"), status, detail, controls)
+end
+
+-- Off until wanted: lets deploy-to-kobo.sh --wifi install a new version.
+function Settings:buildUpdates()
+    if not Remote.available() then return end
+    local on = Remote.isRunning()
+    local status = _("Off")
+    local detail = _("Turn on to install a new version from the computer.")
+    if on then
+        local address = Remote.address()
+        status = _("On")
+        detail = address and T(_("Address %1"), address) or _("Waiting for Wi-Fi")
+    end
+    local choices = UI.choices({
+        { id = false, label = _("Off") },
+        { id = true, label = _("On") },
+    }, on, nil, UI.H(44), function(opt)
+        if opt.id == Remote.isRunning() then return end
+        if opt.id then
+            self:turnUpdatesOn()
+        else
+            Remote.stop()
+        end
+        self:refresh()
+    end)
+    return self:row(_("Updates over Wi-Fi"), status, detail, choices)
+end
+
+function Settings:turnUpdatesOn()
+    local NetworkMgr = require("ui/network/manager")
+    local ready = function()
+        if not Remote.start() then
+            UIManager:show(InfoMessage:new{ text = _("Couldn't turn on updates."), timeout = 2 })
+        end
+        self:refresh()
+    end
+    if NetworkMgr:isConnected() then
+        ready()
+    else
+        NetworkMgr:beforeWifiAction(ready)
+    end
 end
 
 function Settings:buildSleep()
@@ -254,6 +297,7 @@ function Settings:buildSections()
     local sections = VerticalGroup:new{ align = "left" }
     for __, section in ipairs{
         self:buildWifi(),
+        self:buildUpdates() or false,
         self:buildSleep(),
         self:buildStats(),
         self:buildCalibre() or false,
@@ -369,6 +413,11 @@ function Settings:onTapOutside(__, ges)
     local d = self.panel.dimen
     if d and ges.pos.y >= d.y then return true end
     return self:onClose()
+end
+
+-- Sleep turns updates off, and Wi-Fi may have changed.
+function Settings:onResume()
+    self:refresh()
 end
 
 function Settings:onCloseWidget()
