@@ -132,11 +132,15 @@ local function applyDefaults()
     end
 
     G:saveSetting("reader_footer_mode", 1)
-    -- Footer band as in the design: 56 board pixels, in KOReader's units (shortSide / 600),
-    -- with the page number centred in it. ReaderFooter reads these when a book opens.
+    -- Footer as in the design: a 56 board pixel band with 15 pixel text, in the units ReaderFooter
+    -- scales by. It reads these when a book opens.
+    local Screen = Device.screen
+    local board = math.min(Screen:getWidth(), Screen:getHeight()) / 702
+    local unit = Screen:scaleBySize(1000) / 1000
     local footer = G:readSetting("footer", require("apps/reader/modules/readerfooter").default_settings)
-    footer.container_height = math.floor(56 * 600 / 702 + 0.5)
+    footer.container_height = math.floor(56 * board / unit + 0.5)
     footer.container_bottom_padding = 0
+    footer.text_font_size = math.floor(15 * board / unit + 0.5)
 end
 
 function QuietUI:init()

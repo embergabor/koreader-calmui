@@ -28,9 +28,9 @@ function UI.D(px)
 end
 local D = UI.D
 
--- Font:getFace() scales by scaleBySize(), which is shortSide / 600.
+-- Font:getFace() scales by scaleBySize(), so divide that back out.
 function UI.face(file, px, fallback)
-    local size = px * 600 / 702
+    local size = px * shortSide() / 702 / (Screen:scaleBySize(1000) / 1000)
     return Font:getFace(file, size) or Font:getFace(fallback or "NotoSans-Regular.ttf", size)
 end
 

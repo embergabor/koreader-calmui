@@ -19,6 +19,9 @@ mkdir -p "$KOBO/fonts"
 COPYFILE_DISABLE=1 rsync -r --exclude '._*' --exclude '.DS_Store' --include '*.ttf' --include '*.otf' --exclude '*' \
     fonts/ "$KOBO/fonts/"
 
+# USB storage screen: same program, smaller text, no giant logo
+cp mods/usbms/KoboUSBMS.tar.gz "$KOREADER/data/KoboUSBMS.tar.gz"
+
 mkdir -p "$KOREADER/data/dict"
 COPYFILE_DISABLE=1 rsync -r --exclude '._*' --exclude '.DS_Store' dict/ "$KOREADER/data/dict/"
 
