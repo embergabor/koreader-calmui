@@ -9,7 +9,8 @@ Where the decisions below differ from the goals or design further down, the deci
    screen" line in the goals. Exiting KOReader goes through that menu, so the stock menus stay
    installed but unreachable any other way.
 2. One tap anywhere opens the Aa sheet, except on links and footnotes. Swipes turn pages; no tap zones.
-3. Kept beyond the design: Contents, jump to page, long-press a word for the dictionary.
+3. Kept beyond the design: Contents (our own flat list, nothing collapses), jump to page, long-press
+   a word for the dictionary (popup has only the definition and Close).
    Not kept: highlights and notes, search in book.
 4. After a top or bottom margin tap, the sheet hides for about 1.5 seconds so the change can be seen.
 5. Grid shows real covers, with a drawn cover when a book has none (uses Cover Browser).

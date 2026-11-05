@@ -138,7 +138,9 @@ function Sheet:buildTopRow()
     } }, D(112), D(40))
     local contents = UI.group({ {
         { text = _("Contents"), callback = function()
-            self:closeThen(function() self.ui.toc:onShowToc() end)
+            self:closeThen(function()
+                UIManager:show(require("quietui_contents"):new{ ui = self.ui }, "ui")
+            end)
         end },
     } }, D(100), D(40))
     local page_label = T("%1 / %2", page, total)

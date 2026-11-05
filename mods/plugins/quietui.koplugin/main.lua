@@ -33,6 +33,30 @@ local QuietUI = WidgetContainer:extend{
     is_doc_only = false,
 }
 
+-- The dictionary popup keeps only its definition and a Close button (see dict_button_config).
+-- Its title and word rows build these icons directly, so they are taken out once built.
+local DICT_ICONS_REMOVED = { ["appbar.menu"] = true, edit = true, close = true }
+
+local function removeIcons(node)
+    for i = #node, 1, -1 do
+        local child = node[i]
+        if type(child) == "table" then
+            if DICT_ICONS_REMOVED[child.icon] then
+                table.remove(node, i)
+            else
+                removeIcons(child)
+            end
+        end
+    end
+end
+
+local DictQuickLookup = require("ui/widget/dictquicklookup")
+local dict_init = DictQuickLookup.init
+function DictQuickLookup:init()
+    dict_init(self)
+    removeIcons(self)
+end
+
 local defaults_applied = false
 
 -- Stock behaviour we rely on. Reapplied at every start, so this file stays the source of truth.
@@ -45,6 +69,7 @@ local function applyDefaults()
     G:saveSetting("start_with", "filemanager")
     G:makeTrue("page_turns_disable_tap")
     G:saveSetting("default_highlight_action", "dictionary")
+    G:saveSetting("dict_button_config", { layout = { { "close" } }, order = { "close" }, row_count = { 1 } })
     G:saveSetting("notification_sources_to_show_mask", 0)
     G:saveSetting("hyphenation", settings.hyphenation == true)
     if not G:has("copt_embedded_fonts") then
