@@ -319,6 +319,9 @@ function QuietUI:initReader()
     if self.ui.rolling then
         -- Read by ReaderTypography right after plugins are loaded.
         self.ui.doc_settings:saveSetting("hyphenation", settings.hyphenation == true)
+    else
+        -- One page at a time, as swipes turn pages. Read by ReaderView when the document's settings load.
+        self.ui.doc_settings:saveSetting("kopt_page_scroll", 0)
     end
 
     -- Footer: only "1 / 412", centred.
