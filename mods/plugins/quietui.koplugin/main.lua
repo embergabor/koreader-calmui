@@ -13,6 +13,7 @@ local Device = require("device")
 local Event = require("ui/event")
 local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
+local lfs = require("libs/libkoreader-lfs")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local logger = require("logger")
 local _ = require("gettext")
@@ -262,6 +263,10 @@ local function applyDefaults()
 end
 
 function QuietUI:init()
+    -- A USB install waits here. Connecting from KOReader restarts it without unpacking, so do that now.
+    if lfs.attributes("ota/update.tar.xz", "mode") == "file" then
+        UIManager:nextTick(function() UIManager:restartKOReader() end)
+    end
     applyDefaults()
     require("quietui_remote").install()
     if self.ui.document then
