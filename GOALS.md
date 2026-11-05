@@ -5,9 +5,8 @@ Where the decisions below differ from the goals or design further down, the deci
 
 ## Decisions (2026-11-05)
 
-1. Long-press top-left corner opens the stock KOReader menus; this replaces the "exits to stock home
-   screen" line in the goals. Exiting KOReader goes through that menu, so the stock menus stay
-   installed but unreachable any other way.
+1. No long-press corner (changed after device testing). "Back to Kobo" at the top left of the Library
+   exits KOReader. Stock menus aren't reachable from the UI; settings.lua can bring the corner back.
 2. One tap anywhere opens the Aa sheet, except on links and footnotes. Swipes turn pages; no tap zones.
 3. Kept beyond the design: Contents (our own flat list, nothing collapses), jump to page, long-press
    a word for the dictionary (popup has only the definition and Close).
@@ -22,8 +21,14 @@ Where the decisions below differ from the goals or design further down, the deci
 9. New books start from the last settings used, then keep their own per book.
 10. Elipsa first, Libra 2 afterwards. Libra 2 page-turn buttons keep turning pages.
 
-Sync: KOReader sync stays, with no screen of its own. Log in once through the stock menu behind the
-corner; after that it runs silently (forward without asking, never backward).
+Sync: a cogwheel in the Library header opens a small Settings sheet with the sync login. After that
+it runs silently (forward without asking, never backward).
+
+After device testing: the opening popup is a card with title and author; the reader's page number sits
+in a 56px band; sizes go 12 to 26; dragging up or down the left edge changes brightness live, and the
+right edge warmth; Light and Warm have plus and minus buttons, on two rows in the top strip.
+
+Dictionary: English-English Wiktionary (one language, from KOReader's own catalogue).
 
 Interface font: Source Sans 3, with Noto Sans as the fallback.
 

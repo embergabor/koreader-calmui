@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copy Quiet UI (plugin, patches, fonts) onto the Kobo's KOReader install, then eject.
+# Copy Quiet UI (plugin, patches, fonts, dictionary) onto the Kobo's KOReader install, then eject.
 #   ./deploy-to-kobo.sh [--no-eject]
 set -e
 cd "$(dirname "$0")"
@@ -19,7 +19,10 @@ mkdir -p "$KOBO/fonts"
 COPYFILE_DISABLE=1 rsync -r --exclude '._*' --exclude '.DS_Store' --include '*.ttf' --include '*.otf' --exclude '*' \
     fonts/ "$KOBO/fonts/"
 
-find "$KOREADER/plugins/quietui.koplugin" "$KOREADER/patches" "$KOBO/fonts" -name '._*' -delete
+mkdir -p "$KOREADER/data/dict"
+COPYFILE_DISABLE=1 rsync -r --exclude '._*' --exclude '.DS_Store' dict/ "$KOREADER/data/dict/"
+
+find "$KOREADER/plugins/quietui.koplugin" "$KOREADER/patches" "$KOBO/fonts" "$KOREADER/data/dict" -name '._*' -delete
 sync
 echo "Deployed Quiet UI to $KOBO"
 

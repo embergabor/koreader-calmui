@@ -4,3 +4,4 @@ emulator/
 fonts/
 src/
 .DS_Store
+dict/

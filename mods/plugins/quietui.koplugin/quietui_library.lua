@@ -76,7 +76,7 @@ local function progressText(status, percent)
     return string.format("%d%%", math.floor((percent or 0) * 100 + 0.5))
 end
 
-local function describe(file, home)
+local function parsePath(file, home)
     local parts = {}
     for part in file:sub(#home + 2):gmatch("[^/]+") do
         table.insert(parts, part)
@@ -96,6 +96,21 @@ local function describe(file, home)
             book.title = prettifyTitle(title)
         end
     end
+    return book
+end
+
+--- Title and author (nil if unknown) of a single file, from its path.
+function Library.identify(file)
+    local home = ffiUtil.realpath(filemanagerutil.getHomeFolder())
+    if home and file:sub(1, #home + 1) == home .. "/" then
+        local book = parsePath(file, home)
+        return book.title, book.author ~= UNSORTED and book.author or nil
+    end
+    return prettifyTitle(stripExtension(file:match("[^/]+$") or file))
+end
+
+local function describe(file, home)
+    local book = parsePath(file, home)
     book.title_key = titleKey(book.title)
     book.author_key = authorKey(book.author)
 

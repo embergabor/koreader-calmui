@@ -11,10 +11,15 @@ return {
 
     -- What the reader gestures do.
     -- tap: "sheet" or "none"
-    -- hold_top_left: "menu" (stock KOReader menus), "exit" (back to the Kobo home screen) or "none"
+    -- hold_top_left: "none", "exit" (back to the Kobo home screen) or "menu" (stock KOReader menus).
+    --   The stock menus can't otherwise be reached. Turn "menu" on for one-off jobs such as logging
+    --   in to sync, then back to "none".
+    -- edge_left, edge_right: dragging up or down along that edge changes "brightness" or "warmth".
     gestures = {
         tap = "sheet",
-        hold_top_left = "menu",
+        hold_top_left = "none",
+        edge_left = "brightness",
+        edge_right = "warmth",
     },
 
     -- Font buttons in the Aa sheet, in order: family name, then a replacement used when the
@@ -52,6 +57,9 @@ return {
     },
 
     hyphenation = false,
+
+    -- KOReader sync server. Leave out for KOReader's public one.
+    -- sync_server = "https://example.com",
 
     -- How long the sheet hides after a top or bottom margin tap, so the change can be seen.
     peek_seconds = 1.5,

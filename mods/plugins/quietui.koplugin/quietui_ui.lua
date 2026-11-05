@@ -226,14 +226,16 @@ end
 --- Slider in 10% steps: track, black fill, round knob.
 local Slider = InputContainer:extend{
     width = nil,
+    height = nil,
     value = 0, -- 0..1
     steps = 10,
-    on_change = nil,
+    on_change = nil, -- on tap and at the end of a drag
+    on_drag = nil, -- during a drag
     show_parent = nil,
 }
 
 function Slider:init()
-    self.height = D(56)
+    self.height = self.height or D(56)
     self.inset = D(14)
     self.dimen = Geom:new{ w = self.width, h = self.height }
     local range = function() return self.dimen end
@@ -285,6 +287,7 @@ end
 
 function Slider:onPan(__, ges)
     self.value = self:valueAt(ges.pos)
+    if self.on_drag then self.on_drag(self.value) end
     self:repaint()
     return true
 end

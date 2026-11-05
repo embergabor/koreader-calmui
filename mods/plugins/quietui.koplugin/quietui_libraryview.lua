@@ -15,6 +15,7 @@ local Geom = require("ui/geometry")
 local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
+local IconWidget = require("ui/widget/iconwidget")
 local ImageWidget = require("ui/widget/imagewidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local Library = require("quietui_library")
@@ -377,7 +378,7 @@ end
 -- Page ----------------------------------------------------------------------
 
 function LibraryView:buildHeader()
-    local sort = UI.choices(SORTS, self.sort, D(250), D(44), function(opt)
+    local sort = UI.choices(SORTS, self.sort, D(216), D(44), function(opt)
         self.sort = opt.id
         G_reader_settings:saveSetting("quietui_sort", opt.id)
         self:rebuild()
@@ -385,21 +386,59 @@ function LibraryView:buildHeader()
     local view = UI.choices({
         { id = "grid", content = function(fg) return UI.iconGrid(fg) end },
         { id = "list", content = function(fg) return UI.iconList(fg) end },
-    }, self.view, D(102), D(44), function(opt)
+    }, self.view, D(96), D(44), function(opt)
         self.view = opt.id
         G_reader_settings:saveSetting("quietui_view", opt.id)
         self:rebuild()
     end)
-    local dimen = Geom:new{ w = self.dimen.w - D(32) - D(24), h = D(HEADER_H) - D(2) }
+    local cog = UI.group({ {
+        {
+            content = function()
+                return IconWidget:new{ icon = "appbar.settings", width = D(26), height = D(26) }
+            end,
+            callback = function()
+                UIManager:show(require("quietui_settings"):new{ settings = self.settings }, "ui")
+            end,
+        },
+    } }, D(48), D(44))
+    local back = UI.group({ {
+        {
+            content = function()
+                return HorizontalGroup:new{
+                    align = "center",
+                    IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
+                    HorizontalSpan:new{ width = D(2) },
+                    UI.text(_("Back to Kobo"), UI.sans(16, 700)),
+                }
+            end,
+            callback = function() self.run_action("exit") end,
+        },
+    } }, D(140), D(40))
+    local dimen = Geom:new{ w = self.dimen.w - D(16) - D(24), h = D(HEADER_H) - D(2) }
     return VerticalGroup:new{
         HorizontalGroup:new{
-            HorizontalSpan:new{ width = D(32) },
+            HorizontalSpan:new{ width = D(16) },
             OverlapGroup:new{
                 dimen = dimen,
-                LeftContainer:new{ dimen = dimen, UI.text(_("Library"), UI.serif(28, 700)) },
+                LeftContainer:new{
+                    dimen = dimen,
+                    HorizontalGroup:new{
+                        align = "center",
+                        back,
+                        HorizontalSpan:new{ width = D(14) },
+                        UI.text(_("Library"), UI.serif(28, 700)),
+                    },
+                },
                 RightContainer:new{
                     dimen = dimen,
-                    HorizontalGroup:new{ align = "center", sort, HorizontalSpan:new{ width = D(12) }, view },
+                    HorizontalGroup:new{
+                        align = "center",
+                        sort,
+                        HorizontalSpan:new{ width = D(8) },
+                        view,
+                        HorizontalSpan:new{ width = D(8) },
+                        cog,
+                    },
                 },
             },
         },
@@ -485,15 +524,17 @@ function LibraryView:onSwipe(__, ges)
     return true
 end
 
+-- Finger drags fall through to the edge-light zones on the file manager.
 function LibraryView:onPan(__, ges)
     if ges.mousewheel_direction then
         self:goToPage(self.page + (ges.direction == "north" and 1 or -1))
+        return true
     end
-    return true
 end
 
 function LibraryView:onHoldCorner()
-    if self.run_action then self.run_action(self.settings.gestures.hold_top_left) end
+    local action = self.settings.gestures.hold_top_left
+    if action and action ~= "none" then self.run_action(action) end
     return true
 end
 

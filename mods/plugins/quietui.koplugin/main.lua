@@ -10,10 +10,13 @@ PDFs and other fixed-layout documents keep the stock reader controls.
 --]]--
 
 local Device = require("device")
+local Event = require("ui/event")
+local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local logger = require("logger")
 local lfs = require("libs/libkoreader-lfs")
+local _ = require("gettext")
 
 local plugin_dir = debug.getinfo(1, "S").source:match("^@(.*)/[^/]*$") or "."
 
@@ -57,6 +60,35 @@ function DictQuickLookup:init()
     removeIcons(self)
 end
 
+-- Same as stock, except for the card shown while the book loads. A seamless reload after a settings
+-- change stays stock: its invisible message keeps a widget on screen, or KOReader would quit.
+local stockShowReaderCoroutine = ReaderUI.showReaderCoroutine
+function ReaderUI:showReaderCoroutine(file, provider, seamless)
+    if seamless then
+        return stockShowReaderCoroutine(self, file, provider, seamless)
+    end
+    UIManager:show(require("quietui_opening"):new{ file = file })
+    -- doShowReader might block for a long time, so force repaint here
+    UIManager:forceRePaint()
+    UIManager:nextTick(function()
+        local co = coroutine.create(function()
+            self:doShowReader(file, provider, seamless)
+        end)
+        local ok, err = coroutine.resume(co)
+        if err ~= nil or ok == false then
+            io.stderr:write("[!] doShowReader coroutine crashed:\n")
+            io.stderr:write(debug.traceback(co, err, 1))
+            -- Restore input if we crashed before ReaderUI has restored it
+            Device:setIgnoreInput(false)
+            Device.input:inhibitInputUntil(0.2)
+            UIManager:show(require("ui/widget/infomessage"):new{
+                text = _("No reader engine for this file or invalid file."),
+            })
+            self:showFileManager(file)
+        end
+    end)
+end
+
 local defaults_applied = false
 
 -- Stock behaviour we rely on. Reapplied at every start, so this file stays the source of truth.
@@ -95,25 +127,16 @@ local function applyDefaults()
     end
     G:saveSetting("plugins_disabled", disabled)
 
-    -- Reading position sync is silent: forward without asking, never backward.
-    -- Logging in is done once from the stock menu.
     if keep.kosync then
-        local LuaSettings = require("luasettings")
-        local DataStorage = require("datastorage")
-        local kosync = LuaSettings:open(DataStorage:getSettingsDir() .. "/kosync.lua")
-        local sync = kosync:readSetting("settings") or {}
-        if sync.userkey then
-            sync.auto_sync = true
-            sync.sync_forward = 2 -- SYNC_STRATEGY.SILENT
-            sync.sync_backward = 3 -- SYNC_STRATEGY.DISABLE
-            kosync:saveSetting("settings", sync)
-            kosync:flush()
-            G:saveSetting("wifi_enable_action", "turn_on")
-            G:saveSetting("wifi_disable_action", "turn_off")
-        end
+        require("quietui_sync").reapply()
     end
 
     G:saveSetting("reader_footer_mode", 1)
+    -- Footer band as in the design: 56 board pixels, in KOReader's units (shortSide / 600),
+    -- with the page number centred in it. ReaderFooter reads these when a book opens.
+    local footer = G:readSetting("footer", require("apps/reader/modules/readerfooter").default_settings)
+    footer.container_height = math.floor(56 * 600 / 702 + 0.5)
+    footer.container_bottom_padding = 0
 end
 
 function QuietUI:init()
@@ -129,11 +152,14 @@ function QuietUI:runAction(action)
     if action == "menu" then
         UIManager:nextTick(function() self.ui.menu:onShowMenu() end)
     elseif action == "exit" then
-        UIManager:nextTick(function()
-            self.ui:onClose()
-            UIManager:quit()
-        end)
+        -- Same as the stock Exit menu entry; on Kobo this returns to the home screen.
+        UIManager:broadcastEvent(Event:new("Exit"))
     end
+end
+
+function QuietUI:edgeActions()
+    local gestures = settings.gestures
+    return { left = gestures.edge_left, right = gestures.edge_right }
 end
 
 -- Library -------------------------------------------------------------------
@@ -143,6 +169,7 @@ function QuietUI:initLibrary()
     local noop = function() end
     fm.menu.onTapShowMenu = noop
     fm.menu.onSwipeShowMenu = noop
+    require("quietui_light").registerEdgeZones(fm, self:edgeActions())
 
     -- The file manager builds its layout after loading plugins. Keep its file chooser,
     -- which the rest of KOReader talks to, but never put it on screen.
@@ -188,6 +215,22 @@ function QuietUI:initReader()
 end
 
 function QuietUI:registerZones()
+    require("quietui_light").registerEdgeZones(self.ui, self:edgeActions(), { "rolling_pan" })
+    local action = settings.gestures.hold_top_left
+    if action and action ~= "none" then
+        self.ui:registerTouchZones({
+            {
+                id = "quietui_hold_corner",
+                ges = "hold",
+                screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 0.15, ratio_h = 0.1 },
+                overrides = { "readerhighlight_hold", "readerfooter_hold" },
+                handler = function()
+                    self:runAction(action)
+                    return true
+                end,
+            },
+        })
+    end
     self.ui:registerTouchZones({
         {
             id = "quietui_tap",
@@ -209,16 +252,6 @@ function QuietUI:registerZones()
                 "tap_backward",
             },
             handler = function(ges) return self:onReaderTap(ges) end,
-        },
-        {
-            id = "quietui_hold_corner",
-            ges = "hold",
-            screen_zone = { ratio_x = 0, ratio_y = 0, ratio_w = 0.15, ratio_h = 0.1 },
-            overrides = { "readerhighlight_hold", "readerfooter_hold" },
-            handler = function()
-                self:runAction(settings.gestures.hold_top_left)
-                return true
-            end,
         },
     })
 end

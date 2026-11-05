@@ -19,6 +19,7 @@ local HorizontalSpan = require("ui/widget/horizontalspan")
 local IconWidget = require("ui/widget/iconwidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local LeftContainer = require("ui/widget/container/leftcontainer")
+local Light = require("quietui_light")
 local LineWidget = require("ui/widget/linewidget")
 local OverlapGroup = require("ui/widget/overlapgroup")
 local RightContainer = require("ui/widget/container/rightcontainer")
@@ -35,7 +36,7 @@ local _ = require("gettext")
 
 local D = UI.D
 
-local SIZES = { 16, 17, 18, 19, 20, 21, 22, 24, 26 }
+local SIZES = { 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 26 }
 
 local SPACINGS = {
     { id = 90, label = _("Tight"), y1 = 7, y3 = 15 },
@@ -74,6 +75,7 @@ local REFRESHES = {
 }
 
 local PANEL_H = 424
+local LIGHT_ROW_H = 48
 
 local function closest(list, value)
     local best, best_d = list[1], math.huge
@@ -110,8 +112,6 @@ function Sheet:init()
     self.ges_events = {
         TapPage = { GestureRange:new{ ges = "tap", range = self.dimen } },
     }
-    -- The desktop emulator has no frontlight: still draw the sliders so the layout can be checked.
-    self.light_preview = not Device:hasFrontlight() and (Device:isDesktop() or Device:isEmulator())
     self:update()
 end
 
@@ -169,80 +169,79 @@ function Sheet:buildTopRow()
     }
 end
 
-function Sheet:sliderCell(label, value, on_change)
-    local w = math.floor((self.dimen.w - 2 * D(24) - D(32)) / 2)
-    local dimen = Geom:new{ w = w, h = D(64) - D(2) }
-    local label_w, value_w = D(48), D(44)
-    local slider = UI.Slider:new{
-        width = w - label_w - value_w - 2 * D(8),
-        value = value,
-        show_parent = self,
-        on_change = function(v)
-            on_change(v)
-            self:refresh()
-        end,
-    }
-    return OverlapGroup:new{
-        dimen = dimen,
-        LeftContainer:new{
-            dimen = dimen,
-            HorizontalGroup:new{
-                align = "center",
-                LeftContainer:new{ dimen = Geom:new{ w = label_w, h = dimen.h }, UI.label(label) },
-                HorizontalSpan:new{ width = D(8) },
-                slider,
-            },
+-- One light control: label, minus, slider, plus, value. Percent values throughout.
+function Sheet:lightRow(label, percent, step, slider_steps, set)
+    local row_h = D(LIGHT_ROW_H)
+    local label_w, button_w, value_w, gap = D(52), D(48), D(52), D(8)
+    local function change(value)
+        set(math.max(0, math.min(100, value)))
+        self:refreshStrip()
+    end
+    local function button(text, delta)
+        return UI.group({ {
+            { text = text, face = UI.sans(24, 600), callback = function() change(percent + delta) end },
+        } }, button_w, D(36))
+    end
+    local value_box = Geom:new{ w = value_w, h = row_h }
+    return HorizontalGroup:new{
+        align = "center",
+        HorizontalSpan:new{ width = D(24) },
+        LeftContainer:new{ dimen = Geom:new{ w = label_w, h = row_h }, UI.label(label) },
+        button("−", -step),
+        UI.Slider:new{
+            width = self.dimen.w - 2 * D(24) - label_w - 2 * button_w - value_w - gap,
+            height = row_h,
+            value = percent / 100,
+            steps = slider_steps,
+            show_parent = self,
+            on_drag = function(v) set(v * 100) end,
+            on_change = function(v) change(v * 100) end,
         },
+        button("+", step),
+        HorizontalSpan:new{ width = gap },
         RightContainer:new{
-            dimen = dimen,
-            UI.text(string.format("%d%%", math.floor(value * 100 + 0.5)), UI.sans(16, 700)),
+            dimen = value_box,
+            UI.text(string.format("%d%%", percent), UI.sans(16, 700)),
         },
     }
-end
-
-function Sheet:buildLightRow()
-    local powerd = Device:getPowerDevice()
-    local bright, warm
-    if Device:hasFrontlight() or self.light_preview then
-        local min, max = powerd.fl_min, powerd.fl_max
-        local value = self.light_preview and (self.preview_bright or 0.6)
-            or (powerd:frontlightIntensity() - min) / (max - min)
-        bright = self:sliderCell(_("Light"), value, function(v)
-            self.preview_bright = v
-            powerd:setIntensity(math.floor(min + v * (max - min) + 0.5))
-        end)
-    end
-    if Device:hasNaturalLight() or self.light_preview then
-        local value = self.light_preview and (self.preview_warm or 0) or powerd:frontlightWarmth() / 100
-        warm = self:sliderCell(_("Warm"), value, function(v)
-            self.preview_warm = v
-            powerd:setWarmth(math.floor(v * 100 + 0.5))
-        end)
-    end
-    local row = HorizontalGroup:new{ align = "center", HorizontalSpan:new{ width = D(24) } }
-    if bright then table.insert(row, bright) end
-    if warm then
-        table.insert(row, HorizontalSpan:new{ width = D(32) })
-        table.insert(row, warm)
-    end
-    return row
 end
 
 function Sheet:buildStrip()
     local w = self.dimen.w
+    local rows = VerticalGroup:new{
+        align = "left",
+        self:buildTopRow(),
+        LineWidget:new{ dimen = Geom:new{ w = w, h = D(1) }, background = UI.BLACK },
+    }
+    if Light.hasBrightness() then
+        table.insert(rows, self:lightRow(_("Light"), Light.brightness(), 1, 100, function(v)
+            Light.setBrightness(v)
+        end))
+    end
+    if Light.hasWarmth() then
+        local step = Light.warmthStep()
+        table.insert(rows, self:lightRow(_("Warm"), Light.warmth(), step, math.floor(100 / step), function(v)
+            Light.setWarmth(v)
+        end))
+    end
+    table.insert(rows, LineWidget:new{ dimen = Geom:new{ w = w, h = D(2) }, background = UI.BLACK })
     return FrameContainer:new{
         width = w,
         padding = 0,
         bordersize = 0,
         background = UI.WHITE,
-        VerticalGroup:new{
-            align = "left",
-            self:buildTopRow(),
-            LineWidget:new{ dimen = Geom:new{ w = w, h = D(1) }, background = UI.BLACK },
-            self:buildLightRow(),
-            LineWidget:new{ dimen = Geom:new{ w = w, h = D(2) }, background = UI.BLACK },
-        },
+        rows,
     }
+end
+
+-- Light changes don't touch the page, so only the strip needs a refresh.
+function Sheet:refreshStrip()
+    self.strip = self:buildStrip()
+    self[1][1] = self.strip
+    local size = self.strip:getSize()
+    UIManager:setDirty(self, function()
+        return "ui", Geom:new{ x = 0, y = 0, w = size.w, h = size.h }
+    end)
 end
 
 -- Bottom panel --------------------------------------------------------------
