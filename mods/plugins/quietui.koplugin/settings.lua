@@ -57,6 +57,9 @@ return {
         kosync = true,       -- reading position sync
     },
 
+    -- How heavy buttons and outlines are: "current", "thin", "slim", "open" or "hairline".
+    button_style = "current",
+
     hyphenation = false,
 
     -- KOReader sync server. Leave out for KOReader's public one.

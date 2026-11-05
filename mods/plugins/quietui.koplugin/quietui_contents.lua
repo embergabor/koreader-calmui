@@ -62,7 +62,7 @@ function Contents:init()
 end
 
 function Contents:buildHeader()
-    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), D(44))
+    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), UI.H(44))
     local dimen = Geom:new{ w = self.dimen.w - D(SIDE) - D(24), h = D(HEADER_H) - D(2) }
     return VerticalGroup:new{
         HorizontalGroup:new{

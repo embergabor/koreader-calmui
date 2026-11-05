@@ -19,6 +19,21 @@ local WHITE = Blitbuffer.COLOR_WHITE
 
 local UI = { BLACK = BLACK, WHITE = WHITE }
 
+-- How heavy the controls are, in board pixels (1 board pixel is 2 device pixels on the Elipsa).
+-- border: outline, rule: lines between cells (0 for none), height: multiplies control heights.
+local STYLES = {
+    current = { border = 2, rule = 2, radius = 12, height = 1, track = 12, knob = 30, knob_border = 3, dot = 12, stroke = 2 },
+    thin = { border = 1, rule = 1, radius = 12, height = 1, track = 8, knob = 26, knob_border = 2, dot = 10, stroke = 1.5 },
+    slim = { border = 1, rule = 1, radius = 8, height = 0.82, track = 8, knob = 24, knob_border = 2, dot = 10, stroke = 1.5 },
+    open = { border = 1, rule = 0, radius = 8, height = 0.82, track = 8, knob = 24, knob_border = 2, dot = 10, stroke = 1.5 },
+    hairline = { border = 0.5, rule = 0.5, radius = 8, height = 0.82, track = 6, knob = 24, knob_border = 1, dot = 10, stroke = 1 },
+}
+UI.style = STYLES.current
+
+function UI.setStyle(name)
+    UI.style = STYLES[name] or STYLES.current
+end
+
 local function shortSide()
     return math.min(Screen:getWidth(), Screen:getHeight())
 end
@@ -27,6 +42,11 @@ function UI.D(px)
     return math.max(1, math.floor(px * shortSide() / 702 + 0.5))
 end
 local D = UI.D
+
+-- Height of a control, following the style.
+function UI.H(px)
+    return D(px * UI.style.height)
+end
 
 -- Font:getFace() scales by scaleBySize(), so divide that back out.
 function UI.face(file, px, fallback)
@@ -122,9 +142,9 @@ local Group = InputContainer:extend{
 }
 
 function Group:init()
-    self.border = D(2)
-    self.gap = D(2)
-    self.radius = D(12)
+    self.border = D(UI.style.border)
+    self.gap = UI.style.rule > 0 and D(UI.style.rule) or 0
+    self.radius = D(UI.style.radius)
     local inner_w = self.width - 2 * self.border
     local y = self.border
     for r, row in ipairs(self.rows) do
@@ -166,11 +186,11 @@ function Group:paintTo(bb, x, y)
             if cell.selected then
                 bb:paintRect(x + cell.x, y + cell.y, cell.w, cell.h, BLACK)
             end
-            if i < #row then
+            if i < #row and self.gap > 0 then
                 bb:paintRect(x + cell.x + cell.w, y + cell.y, self.gap, cell.h, BLACK)
             end
         end
-        if r < #self.rows then
+        if r < #self.rows and self.gap > 0 then
             local cell = row[1]
             bb:paintRect(x + self.border, y + cell.y + cell.h, w - 2 * self.border, self.gap, BLACK)
         end
@@ -255,18 +275,18 @@ function Slider:paintTo(bb, x, y)
     bb:paintRect(x, y, self.dimen.w, self.dimen.h, WHITE)
     local x0 = x + self.inset
     local track_w = self.width - 2 * self.inset
-    local track_h, knob = D(12), D(30)
+    local track_h, knob = D(UI.style.track), D(UI.style.knob)
     local cy = y + math.floor(self.height / 2)
     local kx = x0 + math.floor(track_w * self.value + 0.5)
     local top = cy - math.floor(track_h / 2)
     local r = math.floor(track_h / 2)
-    bb:paintBorder(x0, top, track_w, track_h, D(2), BLACK, r)
+    bb:paintBorder(x0, top, track_w, track_h, D(UI.style.border), BLACK, r)
     if kx > x0 then
         bb:paintRoundedRect(x0, top, kx - x0, track_h, BLACK, r)
     end
     local kr = math.floor(knob / 2)
     bb:paintRoundedRect(kx - kr, cy - kr, knob, knob, WHITE, kr)
-    bb:paintBorder(kx - kr, cy - kr, knob, knob, D(3), BLACK, kr)
+    bb:paintBorder(kx - kr, cy - kr, knob, knob, D(UI.style.knob_border), BLACK, kr)
 end
 
 function Slider:valueAt(pos)
@@ -303,7 +323,7 @@ UI.Slider = Slider
 
 local function icon(w, h, draw)
     local pw, pxh = D(w), D(h)
-    local t = D(2)
+    local t = D(UI.style.stroke)
     return UI.canvas(pw, pxh, function(bb, x, y)
         draw(function(lx, ly, lw) -- horizontal line
             bb:paintRect(x + D(lx), y + D(ly) - math.floor(t / 2), D(lw), t, UI.icon_fg or BLACK)
@@ -380,14 +400,14 @@ function UI.iconLabel(widget, label, fg)
 end
 
 function UI.dots(count, filled)
-    local d, gap = D(12), D(8)
+    local d, gap = D(UI.style.dot), D(8)
     return UI.canvas(count * d + (count - 1) * gap, d, function(bb, x, y)
         for i = 1, count do
             local dx = x + (i - 1) * (d + gap)
             if i <= filled then
                 bb:paintRoundedRect(dx, y, d, d, BLACK, math.floor(d / 2))
             else
-                bb:paintBorder(dx, y, d, d, D(2), BLACK, math.floor(d / 2))
+                bb:paintBorder(dx, y, d, d, D(UI.style.border), BLACK, math.floor(d / 2))
             end
         end
     end)

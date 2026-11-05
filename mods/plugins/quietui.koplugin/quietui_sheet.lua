@@ -74,7 +74,10 @@ local REFRESHES = {
     { id = -1, label = _("Chapters") },
 }
 
-local PANEL_H = 424
+-- The Text tab's height: fixed spacing plus its controls, which follow the style.
+local function panelHeight()
+    return 170 + 254 * UI.style.height
+end
 local LIGHT_ROW_H = 48
 
 local function closest(list, value)
@@ -135,21 +138,21 @@ function Sheet:buildTopRow()
             end,
             callback = function() self:closeBook() end,
         },
-    } }, D(112), D(40))
+    } }, D(112), UI.H(40))
     local contents = UI.group({ {
         { text = _("Contents"), callback = function()
             self:closeThen(function()
                 UIManager:show(require("quietui_contents"):new{ ui = self.ui }, "ui")
             end)
         end },
-    } }, D(100), D(40))
+    } }, D(100), UI.H(40))
     local page_label = T("%1 / %2", page, total)
     local page_width = UI.text(page_label, UI.sans(15, 700)):getSize().w + D(24)
     local page_button = UI.group({ {
         { text = page_label, face = UI.sans(15, 700), callback = function()
             self:closeThen(function() self:showJumpDialog() end)
         end },
-    } }, math.max(page_width, D(84)), D(40))
+    } }, math.max(page_width, D(84)), UI.H(40))
 
     local right = HorizontalGroup:new{
         align = "center", contents, HorizontalSpan:new{ width = D(8) }, page_button,
@@ -161,7 +164,7 @@ function Sheet:buildTopRow()
         HorizontalSpan:new{ width = D(16) },
         library,
         CenterContainer:new{
-            dimen = Geom:new{ w = title_w + D(24), h = D(60) - D(1) },
+            dimen = Geom:new{ w = title_w + D(24), h = UI.H(60) - D(1) },
             UI.text(props.display_title or props.title or "", UI.serif(18, 700), nil, title_w),
         },
         right,
@@ -171,7 +174,7 @@ end
 
 -- One light control: label, minus, slider, plus, value. Percent values throughout.
 function Sheet:lightRow(label, percent, step, slider_steps, set)
-    local row_h = D(LIGHT_ROW_H)
+    local row_h = UI.H(LIGHT_ROW_H)
     local label_w, button_w, value_w, gap = D(52), D(48), D(52), D(8)
     local function change(value)
         set(math.max(0, math.min(100, value)))
@@ -180,7 +183,7 @@ function Sheet:lightRow(label, percent, step, slider_steps, set)
     local function button(text, delta)
         return UI.group({ {
             { text = text, face = UI.sans(24, 600), callback = function() change(percent + delta) end },
-        } }, button_w, D(36))
+        } }, button_w, UI.H(36))
     end
     local value_box = Geom:new{ w = value_w, h = row_h }
     return HorizontalGroup:new{
@@ -282,7 +285,7 @@ function Sheet:buildSize()
             end,
         },
         { text = "+", face = UI.sans(28, 600), span = 96, callback = function() step(1) end },
-    } }, self.content_w, D(52))
+    } }, self.content_w, UI.H(52))
 end
 
 function Sheet:buildFonts()
@@ -316,7 +319,7 @@ function Sheet:buildFonts()
             self:refresh()
         end,
     })
-    return UI.group(rows, self.content_w, D(46))
+    return UI.group(rows, self.content_w, UI.H(46))
 end
 
 function Sheet:buildTextBody()
@@ -343,12 +346,12 @@ function Sheet:buildTextBody()
         VerticalSpan:new{ width = D(18) },
         HorizontalGroup:new{
             align = "top",
-            labelled(_("Weight"), UI.choices(weights, current_weight, col_w, D(48), function(opt)
+            labelled(_("Weight"), UI.choices(weights, current_weight, col_w, UI.H(48), function(opt)
                 Presets.setWeight(self.ui, opt.id)
                 self:refresh()
             end)),
             HorizontalSpan:new{ width = col_gap },
-            labelled(_("Rendering"), UI.choices(Presets.RENDERS, Presets.currentRender(self.ui), col_w, D(48),
+            labelled(_("Rendering"), UI.choices(Presets.RENDERS, Presets.currentRender(self.ui), col_w, UI.H(48),
                 function(opt)
                     Presets.setRender(self.ui, opt.id)
                     self:refresh()
@@ -406,13 +409,13 @@ function Sheet:buildPageBody()
         HorizontalGroup:new{
             align = "top",
             labelled(_("Line spacing"), UI.choices(spacings, closest(SPACINGS, configurable.line_spacing).id,
-                spacing_w, D(64), function(opt)
+                spacing_w, UI.H(64), function(opt)
                     Presets.setLineSpacing(self.ui, opt.id)
                     self:refresh()
                 end)),
             HorizontalSpan:new{ width = col_gap },
             labelled(_("Alignment"), UI.choices(aligns, Presets.isLeftAligned(self.ui) and "left" or "justify",
-                align_w, D(64), function(opt)
+                align_w, UI.H(64), function(opt)
                     Presets.setAlignment(self.ui, opt.id == "left")
                     self:refresh()
                 end)),
@@ -421,19 +424,19 @@ function Sheet:buildPageBody()
         HorizontalGroup:new{
             align = "top",
             labelled(_("Top & bottom margins"), UI.choices(tbs, closest(TB_MARGINS, configurable.t_page_margin).id,
-                col_w, D(64), function(opt)
+                col_w, UI.H(64), function(opt)
                     Presets.setMargins(self.ui, nil, opt.id)
                     self:peek()
                 end)),
             HorizontalSpan:new{ width = col_gap },
             labelled(_("Left & right margins"), UI.choices(lrs, closest(LR_MARGINS, h_margin).id,
-                col_w, D(64), function(opt)
+                col_w, UI.H(64), function(opt)
                     Presets.setMargins(self.ui, opt.id, nil)
                     self:refresh()
                 end)),
         },
         VerticalSpan:new{ width = D(16) },
-        labelled(_("Full refresh"), UI.choices(REFRESHES, UIManager.FULL_REFRESH_COUNT, self.content_w, D(48),
+        labelled(_("Full refresh"), UI.choices(REFRESHES, UIManager.FULL_REFRESH_COUNT, self.content_w, UI.H(48),
             function(opt)
                 UIManager:setRefreshRate(opt.id, opt.id)
                 self:refresh()
@@ -445,9 +448,9 @@ function Sheet:buildPanel()
     local tabs = UI.group({ {
         { text = _("Text"), selected = self.tab == "text", callback = function() self:setTab("text") end },
         { text = _("Page"), selected = self.tab == "page", callback = function() self:setTab("page") end },
-    } }, D(246), D(44))
-    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), D(44))
-    local bar = Geom:new{ w = self.content_w, h = D(48) }
+    } }, D(246), UI.H(44))
+    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), UI.H(44))
+    local bar = Geom:new{ w = self.content_w, h = UI.H(48) }
     local body = self.tab == "text" and self:buildTextBody() or self:buildPageBody()
     return FrameContainer:new{
         width = self.dimen.w,
@@ -460,7 +463,7 @@ function Sheet:buildPanel()
             HorizontalGroup:new{
                 HorizontalSpan:new{ width = D(32) },
                 OverlapGroup:new{
-                    dimen = Geom:new{ w = self.content_w, h = D(PANEL_H) - D(2) },
+                    dimen = Geom:new{ w = self.content_w, h = D(panelHeight()) - D(2) },
                     VerticalGroup:new{
                         align = "left",
                         VerticalSpan:new{ width = D(18) },
@@ -487,7 +490,7 @@ function Sheet:update()
         dimen = self.dimen:copy(),
         self.strip,
         VerticalGroup:new{
-            VerticalSpan:new{ width = self.dimen.h - D(PANEL_H) },
+            VerticalSpan:new{ width = self.dimen.h - D(panelHeight()) },
             self.panel,
         },
     }

@@ -144,6 +144,7 @@ local function applyDefaults()
 end
 
 function QuietUI:init()
+    require("quietui_ui").setStyle(settings.button_style)
     applyDefaults()
     if self.ui.document then
         self:initReader()

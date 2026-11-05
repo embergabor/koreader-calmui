@@ -25,7 +25,7 @@ local Opening = InputContainer:extend{
 function Opening:init()
     self.dimen = Screen:getSize()
     local title, author = Library.identify(self.file)
-    local inner_w = D(480) - 2 * D(2) - 2 * D(28)
+    local inner_w = D(480) - 2 * D(UI.style.border) - 2 * D(28)
     local content = VerticalGroup:new{
         align = "left",
         UI.label(_("Opening")),
@@ -45,7 +45,7 @@ function Opening:init()
     end
     self.frame = FrameContainer:new{
         padding = D(28),
-        bordersize = D(2),
+        bordersize = D(UI.style.border),
         radius = D(12),
         background = UI.WHITE,
         content,

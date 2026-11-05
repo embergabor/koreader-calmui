@@ -216,7 +216,7 @@ function LibraryView:drawnCover(book, w, h)
     local author = UI.text(book.author:upper(), UI.sans(11, 700), fg, inner_w)
     return FrameContainer:new{
         padding = 0,
-        bordersize = D(2),
+        bordersize = D(UI.style.border),
         radius = D(3),
         background = bg,
         OverlapGroup:new{
@@ -241,7 +241,7 @@ function LibraryView:drawnThumb(book, w, h)
     local path, inverted = self:drawnStyle(book)
     return FrameContainer:new{
         padding = 0,
-        bordersize = D(2),
+        bordersize = D(UI.style.border),
         radius = D(2),
         background = inverted and UI.BLACK or UI.WHITE,
         CenterContainer:new{
@@ -277,7 +277,7 @@ function LibraryView:coverWidget(book, w, h, thumb)
     local image = self:coverImage(book, w - 2 * D(2), h - 2 * D(2))
     if image then
         self.has_images = true
-        return FrameContainer:new{ padding = 0, bordersize = D(2), radius = D(thumb and 2 or 3), image }
+        return FrameContainer:new{ padding = 0, bordersize = D(UI.style.border), radius = D(thumb and 2 or 3), image }
     end
     return thumb and self:drawnThumb(book, w, h) or self:drawnCover(book, w, h)
 end
@@ -378,7 +378,7 @@ end
 -- Page ----------------------------------------------------------------------
 
 function LibraryView:buildHeader()
-    local sort = UI.choices(SORTS, self.sort, D(216), D(44), function(opt)
+    local sort = UI.choices(SORTS, self.sort, D(216), UI.H(44), function(opt)
         self.sort = opt.id
         G_reader_settings:saveSetting("quietui_sort", opt.id)
         self:rebuild()
@@ -386,7 +386,7 @@ function LibraryView:buildHeader()
     local view = UI.choices({
         { id = "grid", content = function(fg) return UI.iconGrid(fg) end },
         { id = "list", content = function(fg) return UI.iconList(fg) end },
-    }, self.view, D(96), D(44), function(opt)
+    }, self.view, D(96), UI.H(44), function(opt)
         self.view = opt.id
         G_reader_settings:saveSetting("quietui_view", opt.id)
         self:rebuild()
@@ -400,7 +400,7 @@ function LibraryView:buildHeader()
                 UIManager:show(require("quietui_settings"):new{ settings = self.settings }, "ui")
             end,
         },
-    } }, D(48), D(44))
+    } }, D(48), UI.H(44))
     local back = UI.group({ {
         {
             content = function()
@@ -413,7 +413,7 @@ function LibraryView:buildHeader()
             end,
             callback = function() self.run_action("exit") end,
         },
-    } }, D(140), D(40))
+    } }, D(140), UI.H(40))
     local dimen = Geom:new{ w = self.dimen.w - D(16) - D(24), h = D(HEADER_H) - D(2) }
     return VerticalGroup:new{
         HorizontalGroup:new{
