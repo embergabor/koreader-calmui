@@ -30,7 +30,6 @@ local D = UI.D
 
 -- Board pixels, matching the library.
 local HEADER_H, FOOTER_H, SIDE, PAD, ROW_H, INDENT = 76, 56, 32, 8, 56, 24
-local PER_PAGE = math.floor((936 - HEADER_H - FOOTER_H - PAD) / ROW_H)
 
 local Contents = InputContainer:extend{
     ui = nil,
@@ -56,8 +55,9 @@ function Contents:init()
         self.min_depth = math.min(self.min_depth, entry.depth or 1)
     end
     self.current = toc:getTocIndexByPage(self.ui:getCurrentPage())
-    self.page_count = math.max(1, math.ceil(#self.entries / PER_PAGE))
-    self.page = self.current and math.ceil(self.current / PER_PAGE) or 1
+    self.per_page = math.floor((UI.boardH() - HEADER_H - FOOTER_H - PAD) / ROW_H)
+    self.page_count = math.max(1, math.ceil(#self.entries / self.per_page))
+    self.page = self.current and math.ceil(self.current / self.per_page) or 1
     self:buildPage()
 end
 
@@ -102,8 +102,8 @@ end
 
 function Contents:buildPage()
     local body = VerticalGroup:new{ align = "left", VerticalSpan:new{ width = D(PAD) } }
-    local first = (self.page - 1) * PER_PAGE + 1
-    for i = first, math.min(first + PER_PAGE - 1, #self.entries) do
+    local first = (self.page - 1) * self.per_page + 1
+    for i = first, math.min(first + self.per_page - 1, #self.entries) do
         table.insert(body, self:buildRow(i, self.entries[i]))
     end
     if #self.entries == 0 then

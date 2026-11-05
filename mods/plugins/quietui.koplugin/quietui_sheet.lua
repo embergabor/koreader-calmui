@@ -74,10 +74,6 @@ local REFRESHES = {
     { id = -1, label = _("Chapters") },
 }
 
--- The Text tab's height: fixed spacing plus its controls, which follow the style.
-local function panelHeight()
-    return 170 + 254 * UI.style.height
-end
 local LIGHT_ROW_H = 48
 
 local function closest(list, value)
@@ -303,16 +299,17 @@ function Sheet:buildFonts()
             end,
         })
     end
+    local per_row = math.max(4, math.floor(self.content_w / D(150)))
     local rows = { {} }
     for __, option in ipairs(options) do
-        if #rows[#rows] == 4 then table.insert(rows, {}) end
+        if #rows[#rows] == per_row then table.insert(rows, {}) end
         table.insert(rows[#rows], option)
     end
-    if #rows[#rows] == 4 then table.insert(rows, {}) end
+    if #rows[#rows] == per_row then table.insert(rows, {}) end
     table.insert(rows[#rows], {
         text = _("Book’s own"),
         face = UI.sans(17, 700),
-        span = 4 - #rows[#rows], -- fills the rest of the row
+        span = per_row - #rows[#rows], -- fills the rest of the row
         selected = current == Presets.BOOK_FONT,
         callback = function()
             Presets.setFont(self.ui, Presets.BOOK_FONT)
@@ -444,6 +441,15 @@ function Sheet:buildPageBody()
     }
 end
 
+-- Both tabs share one height, so the page doesn't jump when switching.
+function Sheet:panelHeight()
+    if not self.panel_h then
+        local tallest = math.max(self:buildTextBody():getSize().h, self:buildPageBody():getSize().h)
+        self.panel_h = D(2) + D(18) + UI.H(48) + D(18) + tallest + D(20)
+    end
+    return self.panel_h
+end
+
 function Sheet:buildPanel()
     local tabs = UI.group({ {
         { text = _("Text"), selected = self.tab == "text", callback = function() self:setTab("text") end },
@@ -463,7 +469,7 @@ function Sheet:buildPanel()
             HorizontalGroup:new{
                 HorizontalSpan:new{ width = D(32) },
                 OverlapGroup:new{
-                    dimen = Geom:new{ w = self.content_w, h = D(panelHeight()) - D(2) },
+                    dimen = Geom:new{ w = self.content_w, h = self:panelHeight() - D(2) },
                     VerticalGroup:new{
                         align = "left",
                         VerticalSpan:new{ width = D(18) },
@@ -490,7 +496,7 @@ function Sheet:update()
         dimen = self.dimen:copy(),
         self.strip,
         VerticalGroup:new{
-            VerticalSpan:new{ width = self.dimen.h - D(panelHeight()) },
+            VerticalSpan:new{ width = self.dimen.h - self:panelHeight() },
             self.panel,
         },
     }

@@ -44,7 +44,7 @@ local SORTS = {
 -- Board pixels, from the design.
 local HEADER_H, FOOTER_H = 76, 56
 local SIDE = 32
-local GRID_COLS, GRID_COL_GAP, GRID_ROW_GAP, GRID_PAD = 4, 20, 22, 24
+local TILE_W, GRID_COL_GAP, GRID_ROW_GAP, GRID_PAD = 144, 20, 22, 24
 local COVER_H, TILE_TEXT_H, TILE_GAP = 196, 36, 8
 local LIST_PAD, LIST_ROW_H = 8, 66
 local AUTHOR_H, SERIES_H = 44, 30
@@ -60,7 +60,10 @@ function LibraryView:init()
     self.dimen = Geom:new{ x = 0, y = 0, w = Screen:getWidth(), h = Screen:getHeight() }
     self.sort = G_reader_settings:readSetting("quietui_sort", "recent")
     self.view = G_reader_settings:readSetting("quietui_view", "grid")
-    self.cover_w = math.floor((D(702 - 2 * SIDE) - (GRID_COLS - 1) * D(GRID_COL_GAP)) / GRID_COLS)
+    self.content_w = self.dimen.w - 2 * D(SIDE)
+    -- As many columns as fit; bigger screens show more books.
+    self.cols = math.max(3, math.floor((self.content_w + D(GRID_COL_GAP)) / (D(TILE_W) + D(GRID_COL_GAP))))
+    self.cover_w = math.floor((self.content_w - (self.cols - 1) * D(GRID_COL_GAP)) / self.cols)
     self.cover_specs = { max_cover_w = self.cover_w, max_cover_h = D(COVER_H) }
     self.covers = {}
 
@@ -88,7 +91,7 @@ function LibraryView:bookRows(books)
     end
     local rows, current = {}, nil
     for __, book in ipairs(books) do
-        if not current or #current.books == GRID_COLS then
+        if not current or #current.books == self.cols then
             current = { kind = "grid", h = COVER_H + TILE_GAP + TILE_TEXT_H, books = {} }
             table.insert(rows, current)
         end
@@ -122,7 +125,7 @@ end
 -- Keeps a heading with its first row, and repeats headings on a continued page.
 function LibraryView:paginate()
     local pad = self.view == "grid" and GRID_PAD or LIST_PAD
-    local available = 936 - HEADER_H - FOOTER_H - pad
+    local available = UI.boardH() - HEADER_H - FOOTER_H - pad
     local gap = self.view == "grid" and GRID_ROW_GAP or 0
     local rows = self:flatRows()
     self.pages = {}
@@ -328,7 +331,7 @@ end
 
 function LibraryView:listRow(row)
     local book = row.books[1]
-    local w, h = D(702 - 2 * SIDE), D(LIST_ROW_H)
+    local w, h = self.content_w, D(LIST_ROW_H)
     local progress = UI.text(book.progress, UI.sans(15, 600))
     local text_w = w - D(40) - D(16) - progress:getSize().w - D(16)
     local dimen = Geom:new{ w = w, h = h - D(1) }
@@ -355,7 +358,7 @@ function LibraryView:listRow(row)
 end
 
 function LibraryView:heading(row)
-    local w = D(702 - 2 * SIDE)
+    local w = self.content_w
     if row.kind == "author" then
         local label = row.name:upper()
         if row.continued then label = label .. "  ·  " .. _("continued") end

@@ -57,6 +57,10 @@ return {
         kosync = true,       -- reading position sync
     },
 
+    -- Overall size of every screen, stock ones included. 1 is the design's size; book text isn't affected.
+    -- Keep it at 0.9 or above.
+    ui_scale = 1,
+
     -- How heavy buttons and outlines are: "current", "thin", "slim", "open" or "hairline".
     button_style = "hairline",
 

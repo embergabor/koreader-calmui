@@ -28,10 +28,11 @@ After device testing: the opening popup is a card with title and author; the rea
 in a 56px band; sizes go 12 to 26; dragging up or down the left edge changes brightness live, and the
 right edge warmth; Light and Warm have plus and minus buttons, on two rows in the top strip.
 
-Scaling: KOReader sizes its UI by screen width, far too large on the Elipsa. patches/1-quietui-scale.lua
-caps it at a Libra 2's physical density (Elipsa: 0.68x; Libra 2 unchanged), for every stock screen.
-patches/2-quietui-book-scale.lua keeps book text and margins exactly as they were. The USB storage
-screen is a separate program: mods/usbms has it with a smaller font and no logo, program unchanged.
+Scaling: all UI is sized by screen density, not width, so bigger screens show more instead of bigger
+(the library is 6 x 4 on the Elipsa). ui_scale in settings.lua multiplies everything. Stock screens follow
+through patches/1-quietui-scale.lua; patches/2-quietui-book-scale.lua keeps book text and margins as they
+were. Buttons stay at least 6.5 mm tall. The USB storage screen is a separate program: mods/usbms has it
+with a smaller font and no logo, program unchanged.
 
 Dictionary: English-English Wiktionary (one language, from KOReader's own catalogue).
 

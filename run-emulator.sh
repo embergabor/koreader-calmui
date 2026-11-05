@@ -16,6 +16,7 @@ for arg; do
 done
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+export QUIETUI_SETTINGS="$ROOT/mods/plugins/quietui.koplugin/settings.lua"
 export KO_HOME="$ROOT/emulator/home"
 export EMULATE_READER_W=$W EMULATE_READER_H=$H EMULATE_READER_DPI=$DPI
 

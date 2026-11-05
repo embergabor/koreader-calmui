@@ -1,6 +1,7 @@
 --[[--
-Widgets shared by the library and the Aa sheet. Sizes are in board pixels:
-the design was drawn 702px wide, so D() maps them onto any screen width.
+Widgets shared by the library and the Aa sheet. Sizes are in board pixels, which are a
+physical size: D() maps them by the screen's density, so the UI is the same size on any
+device and bigger screens simply show more. settings.lua's ui_scale multiplies everything.
 ]]
 
 local Blitbuffer = require("ffi/blitbuffer")
@@ -34,23 +35,41 @@ function UI.setStyle(name)
     UI.style = STYLES[name] or STYLES.current
 end
 
-local function shortSide()
-    return math.min(Screen:getWidth(), Screen:getHeight())
+-- Device pixels per board pixel at 1 DPI. About 1.34 on the Elipsa (227 DPI), 1.77 on a Libra 2.
+local PIXELS_PER_DPI = 1.34 / 227
+UI.scale = 1
+
+function UI.setScale(scale)
+    UI.scale = scale or 1
+end
+
+local function pixelsPerBoard()
+    return Screen:getDPI() * PIXELS_PER_DPI * UI.scale
 end
 
 function UI.D(px)
-    return math.max(1, math.floor(px * shortSide() / 702 + 0.5))
+    return math.max(1, math.floor(px * pixelsPerBoard() + 0.5))
 end
 local D = UI.D
 
+-- The screen's size in board pixels.
+function UI.boardW()
+    return Screen:getWidth() / pixelsPerBoard()
+end
+
+function UI.boardH()
+    return Screen:getHeight() / pixelsPerBoard()
+end
+
 -- Height of a control, following the style.
+-- Never below what a finger can hit: about 6.5 mm.
 function UI.H(px)
-    return D(px * UI.style.height)
+    return math.max(D(px * UI.style.height), math.floor(Screen:getDPI() * 6.5 / 25.4 + 0.5))
 end
 
 -- Font:getFace() scales by scaleBySize(), so divide that back out.
 function UI.face(file, px, fallback)
-    local size = px * shortSide() / 702 / (Screen:scaleBySize(1000) / 1000)
+    local size = px * pixelsPerBoard() / (Screen:scaleBySize(1000) / 1000)
     return Font:getFace(file, size) or Font:getFace(fallback or "NotoSans-Regular.ttf", size)
 end
 
@@ -77,7 +96,7 @@ end
 
 -- Section label: small, bold, uppercase.
 function UI.label(str)
-    return UI.pinned(UI.text(str:upper(), UI.sans(13, 700)), D(18))
+    return UI.pinned(UI.text(str:upper(), UI.sans(15, 700)), D(20))
 end
 
 --- Anything drawn directly. paint(bb, x, y) draws within w x h.
@@ -395,7 +414,7 @@ function UI.iconLabel(widget, label, fg)
         align = "center",
         widget,
         VerticalSpan:new{ width = D(4) },
-        UI.text(label, UI.sans(13, 700), fg),
+        UI.text(label, UI.sans(14, 700), fg),
     }
 end
 

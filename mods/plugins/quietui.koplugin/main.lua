@@ -30,6 +30,7 @@ local function loadSettings()
 end
 
 local settings = loadSettings()
+require("quietui_ui").setScale(settings.ui_scale)
 
 local QuietUI = WidgetContainer:extend{
     name = "quietui",
@@ -134,13 +135,12 @@ local function applyDefaults()
     G:saveSetting("reader_footer_mode", 1)
     -- Footer as in the design: a 56 board pixel band with 15 pixel text, in the units ReaderFooter
     -- scales by. It reads these when a book opens.
-    local Screen = Device.screen
-    local board = math.min(Screen:getWidth(), Screen:getHeight()) / 702
-    local unit = Screen:scaleBySize(1000) / 1000
+    local UI = require("quietui_ui")
+    local unit = Device.screen:scaleBySize(1000) / 1000
     local footer = G:readSetting("footer", require("apps/reader/modules/readerfooter").default_settings)
-    footer.container_height = math.floor(56 * board / unit + 0.5)
+    footer.container_height = math.floor(UI.D(56) / unit + 0.5)
     footer.container_bottom_padding = 0
-    footer.text_font_size = math.floor(15 * board / unit + 0.5)
+    footer.text_font_size = math.floor(UI.D(15) / unit + 0.5)
 end
 
 function QuietUI:init()
