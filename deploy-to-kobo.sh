@@ -2,10 +2,11 @@
 # Install Quiet UI (plugin, patches, fonts, dictionary) on the Kobo's KOReader.
 #   ./deploy-to-kobo.sh [--no-eject]     over USB, then eject. KOReader unpacks it at its next start.
 #   ./deploy-to-kobo.sh --check          after that, with the Kobo connected again: did it all arrive?
-#   ./deploy-to-kobo.sh --wifi [address] [--all]
+#   ./deploy-to-kobo.sh --wifi [address | elipsa | libra] [--all]
 #       Over Wi-Fi, then restart KOReader. Needs one USB install first, and Updates over Wi-Fi
-#       turned on in the cogwheel, which shows the address. The last address is remembered.
-#       Fonts and the dictionary only come along with --all.
+#       turned on in the cogwheel, which shows the address. Each device's address is remembered
+#       under its name; with neither, the last one used. Fonts and the dictionary only come
+#       along with --all.
 set -e
 cd "$(dirname "$0")"
 KOBO=/Volumes/KOBOeReader

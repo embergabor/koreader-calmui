@@ -30,6 +30,10 @@ local function loadSettings()
 end
 
 local settings = loadSettings()
+-- What a device's entry sets replaces the general setting.
+for key, value in pairs(settings.devices[Device.model] or settings.devices.default or {}) do
+    settings[key] = value
+end
 require("quietui_ui").setScale(settings.ui_scale)
 require("quietui_ui").setStyle(settings.button_style)
 require("quietui_popups").apply()

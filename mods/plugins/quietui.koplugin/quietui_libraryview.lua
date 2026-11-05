@@ -49,6 +49,7 @@ local GRID_COL_GAP, GRID_ROW_GAP, GRID_PAD = 20, 22, 24
 local COVER_RATIO, TITLE_H, PROGRESS_H, TILE_GAP = 1.36, 44, 18, 8 -- two lines of title
 local LIST_PAD, LIST_ROW_H = 8, 66
 local AUTHOR_H, SERIES_H = 44, 30
+local MAX_COVER_SHRINK = 0.15 -- to make room for one more row
 
 local LibraryView = InputContainer:extend{
     ui = nil,
@@ -65,7 +66,7 @@ function LibraryView:init()
     self.content_w = self.dimen.w - 2 * D(SIDE)
     self.cols = self.settings.library_columns or 4
     self.cover_w = math.floor((self.content_w - (self.cols - 1) * D(GRID_COL_GAP)) / self.cols)
-    self.cover_h = math.floor(self.cover_w * COVER_RATIO)
+    self.cover_h = self:fitCoverHeight(math.floor(self.cover_w * COVER_RATIO))
     self.cover_specs = { max_cover_w = self.cover_w, max_cover_h = self.cover_h }
     self.covers = {}
 
@@ -79,6 +80,19 @@ function LibraryView:init()
     self:paginate()
     self.page = self:findPage(G_reader_settings:readSetting("lastfile")) or 1
     self:buildPage()
+end
+
+-- A row costs less room than the empty space it would fill: shrink the covers a little for it.
+function LibraryView:fitCoverHeight(cover_h)
+    local available = UI.boardH() - HEADER_H - FOOTER_H - GRID_PAD + GRID_ROW_GAP
+    local text = TILE_GAP + TITLE_H + PROGRESS_H
+    local board_h = cover_h / D(1000) * 1000
+    local rows = math.floor(available / (board_h + text + GRID_ROW_GAP))
+    local fit = math.floor(available / (rows + 1) - GRID_ROW_GAP - text) - 1
+    if fit >= board_h * (1 - MAX_COVER_SHRINK) then
+        return D(fit)
+    end
+    return cover_h
 end
 
 -- Splitting into pages ------------------------------------------------------
@@ -432,23 +446,26 @@ function LibraryView:buildHeader()
         end,
         callback = function() self:showSearch() end,
     }, UI.H(44), 12)
-    local back = UI.button({
-        content = function()
-            return HorizontalGroup:new{
-                align = "center",
-                IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
-                HorizontalSpan:new{ width = D(2) },
-                UI.text(self.query and _("Library") or _("Back to Kobo"), UI.sans(16, 700)),
-            }
-        end,
-        callback = function()
-            if self.query then
-                self:setQuery(nil)
-            else
-                self.run_action("exit")
-            end
-        end,
-    }, UI.H(44), 14)
+    local function backButton(label)
+        return UI.button({
+            content = function()
+                return HorizontalGroup:new{
+                    align = "center",
+                    IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
+                    HorizontalSpan:new{ width = D(2) },
+                    label,
+                }
+            end,
+            callback = function()
+                if self.query then
+                    self:setQuery(nil)
+                else
+                    self.run_action("exit")
+                end
+            end,
+        }, UI.H(44), 14)
+    end
+    local back = backButton(UI.text(self.query and _("Library") or _("Back to Kobo"), UI.sans(16, 700)))
     local right = HorizontalGroup:new{
         align = "center",
         search,
@@ -463,9 +480,18 @@ function LibraryView:buildHeader()
     local room = width - back:getSize().w - right:getSize().w - 2 * D(14)
     local left = HorizontalGroup:new{ align = "center", back }
     if self.query then
-        -- What was searched for, and how many books it found, in the room that's left.
-        table.insert(left, HorizontalSpan:new{ width = D(14) })
-        table.insert(left, UI.text(T(_("“%1”  ·  %2"), self.query, self.visible_count), UI.sans(17, 700), nil, room))
+        -- What was searched for, and how many books it found. A small screen has no room beside
+        -- the button, so there the button itself says it.
+        local found = T(_("“%1”  ·  %2"), self.query, self.visible_count)
+        local beside = UI.text(found, UI.sans(17, 700))
+        if beside:getSize().w <= room then
+            table.insert(left, HorizontalSpan:new{ width = D(14) })
+            table.insert(left, beside)
+        else
+            local chrome = back:getSize().w - UI.text(_("Library"), UI.sans(16, 700)):getSize().w
+            local label_room = width - right:getSize().w - D(14) - chrome
+            left = HorizontalGroup:new{ align = "center", backButton(UI.text(found, UI.sans(16, 700), nil, label_room)) }
+        end
     else
         -- On a small screen the header drops its title rather than crowd the buttons.
         local title = UI.text(_("Library"), UI.serif(28, 700))
@@ -476,6 +502,7 @@ function LibraryView:buildHeader()
     end
     local dimen = Geom:new{ w = width, h = D(HEADER_H) - D(HEADER_TOP) - D(2) }
     return VerticalGroup:new{
+        align = "left",
         VerticalSpan:new{ width = D(HEADER_TOP) },
         HorizontalGroup:new{
             HorizontalSpan:new{ width = D(SIDE) },

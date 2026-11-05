@@ -10,6 +10,7 @@ local DataStorage = require("datastorage")
 local cmd = DataStorage:getDataDir() .. "/test-cmd.lua"
 local out = DataStorage:getDataDir() .. "/test-out.txt"
 local scale = Device.screen:getWidth() / 702
+if os.getenv("EMULATE_MODEL") then Device.model = os.getenv("EMULATE_MODEL") end
 
 local function gesture(name, bx, by, extra)
     local ges = {

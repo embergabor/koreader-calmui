@@ -1,8 +1,9 @@
 -- Quiet UI: rare options. There is deliberately no screen for these on the device.
 -- Edit this file over USB and restart KOReader.
 return {
-    -- Defaults per device model, used until a setting has been changed on the device.
-    -- render: "crisp", "smooth" or "book"
+    -- Per device model. render ("crisp", "smooth" or "book") is a default, used until it's changed
+    -- on the device. Other settings from this file can go here too, such as library_columns, and
+    -- replace the general one on that device. Not ui_scale or font_folders, which are read earlier.
     devices = {
         Kobo_condor = { render = "smooth" }, -- Elipsa 2E
         Kobo_io     = { render = "book" },   -- Libra 2
@@ -63,7 +64,8 @@ return {
     -- Keep it at 0.9 or above.
     ui_scale = 1,
 
-    -- Books per row in the library's grid.
+    -- Books per row in the library's grid. On a smaller screen the covers shrink a little if that
+    -- makes room for one more row.
     library_columns = 4,
 
     -- How heavy buttons and outlines are: "current", "thin", "slim", "open" or "hairline".

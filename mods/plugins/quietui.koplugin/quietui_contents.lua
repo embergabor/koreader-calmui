@@ -65,6 +65,7 @@ function Contents:buildHeader()
     local done = UI.button({ text = _("Done"), callback = function() self:onClose() end })
     local dimen = Geom:new{ w = self.dimen.w - 2 * D(SIDE), h = D(HEADER_H) - D(HEADER_TOP) - D(2) }
     return VerticalGroup:new{
+        align = "left",
         VerticalSpan:new{ width = D(HEADER_TOP) },
         HorizontalGroup:new{
             HorizontalSpan:new{ width = D(SIDE) },

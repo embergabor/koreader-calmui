@@ -4,7 +4,8 @@ set -e
 cd "$(dirname "$0")/.."
 
 SSH_KEY="$HOME/.ssh/id_kobo"
-HOST_FILE=.kobo-address
+LAST_FILE=.kobo-address
+NAMES_FILE=.kobo-addresses # "name address" for each device
 REMOTE_DIR=/mnt/onboard/.adds/koreader
 
 ALL=
@@ -12,10 +13,14 @@ HOST=
 for arg; do
     case "$arg" in
         --all) ALL=1 ;;
+        elipsa|libra)
+            HOST="$(awk -v name="$arg" '$1 == name { print $2 }' "$NAMES_FILE" 2>/dev/null || true)"
+            [ -n "$HOST" ] || { echo "No address for the $arg yet. Give it once: ./deploy-to-kobo.sh --wifi 192.168.1.50" >&2; exit 1; }
+            ;;
         *) HOST="$arg" ;;
     esac
 done
-[ -n "$HOST" ] || HOST="$(cat "$HOST_FILE" 2>/dev/null || true)"
+[ -n "$HOST" ] || HOST="$(cat "$LAST_FILE" 2>/dev/null || true)"
 [ -n "$HOST" ] || { echo "Give the address shown in the Kobo's cogwheel: ./deploy-to-kobo.sh --wifi 192.168.1.50" >&2; exit 1; }
 [ -f "$SSH_KEY" ] || { echo "No $SSH_KEY yet. Install once over USB first, which sets it up." >&2; exit 1; }
 
@@ -29,7 +34,15 @@ if ! kobo true 2>/dev/null; then
     echo "Can't reach the Kobo at $HOST. Wake it and turn on Updates over Wi-Fi in the cogwheel." >&2
     exit 1
 fi
-echo "$HOST" > "$HOST_FILE"
+echo "$HOST" > "$LAST_FILE"
+case "$(kobo /bin/kobo_config.sh 2>/dev/null || true)" in
+    condor) NAME=elipsa ;;
+    io) NAME=libra ;;
+    *) NAME=kobo ;;
+esac
+{ grep -v "^$NAME " "$NAMES_FILE" 2>/dev/null || true; echo "$NAME $HOST"; } > "$NAMES_FILE.new"
+mv "$NAMES_FILE.new" "$NAMES_FILE"
+echo "Updating the $NAME at $HOST"
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
