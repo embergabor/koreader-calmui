@@ -27,7 +27,7 @@ return {
     fonts = {
         { "Bitter" },
         { "Literata" },
-        { "Rakuten Serif", "IBM Plex Serif" },
+        { "IBM Plex Serif" }, -- shown once installed; takes the place Rakuten Serif would have had
         { "Source Serif 4" },
         { "Spectral" },
         { "Crimson Pro" },
@@ -35,10 +35,11 @@ return {
 
     -- Extra font folders on the device, read at startup by patches/1-quietui-fonts.lua.
     -- /mnt/onboard/fonts is always included. Folders that don't exist are skipped.
-    font_folders = { "/usr/local/Kobo/fonts" },
+    -- Kobo's built-in fonts (/usr/local/Qt-5.2.1-arm/lib/fonts) are obfuscated, so they can't be used.
+    font_folders = {},
 
     -- Write quietui-fonts.txt to the KOReader folder at each start, listing what the patch found.
-    font_report = true,
+    font_report = false,
 
     -- Top-level folders of the home folder that are not books.
     exclude_folders = {

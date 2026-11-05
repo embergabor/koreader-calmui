@@ -14,8 +14,8 @@ Where the decisions below differ from the goals or design further down, the deci
 4. After a top or bottom margin tap, the sheet hides for about 1.5 seconds so the change can be seen.
 5. Grid shows real covers, with a drawn cover when a book has none (uses Cover Browser).
 6. Author sort shows author headings and series sub-headings. Recent and Title stay flat.
-7. Fonts: Bitter, Literata, Rakuten Serif, Source Serif 4, Spectral, Crimson Pro, plus Book's own
-   (see 8). IBM Plex Serif is the backup if Rakuten Serif can't be read on the device.
+7. Fonts: Bitter, Literata, Source Serif 4, Spectral, Crimson Pro, plus Book's own (see 8). Rakuten
+   Serif is on the device but obfuscated, so unusable. IBM Plex Serif shows if installed.
 8. Hyphenation is always off. There is no toggle for book fonts: "Book's own" is one of the font
    choices and uses the book's embedded fonts. Publisher styles stay on.
 9. New books start from the last settings used, then keep their own per book.
