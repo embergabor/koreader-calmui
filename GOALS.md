@@ -21,9 +21,14 @@ Where the decisions below differ from the goals or design further down, the deci
 9. New books start from the last settings used, then keep their own per book.
 10. Elipsa first, Libra 2 afterwards. Libra 2 page-turn buttons keep turning pages.
 
+Sync: KOReader sync stays, with no screen of its own. Log in once through the stock menu behind the
+corner; after that it runs silently (forward without asking, never backward).
+
+Interface font: Source Sans 3, with Noto Sans as the fallback.
+
 Assumed unless changed: Full refresh stays on the Page tab; the library opens at launch; portrait
 locked on both devices; Book preset adds +0.5 weight on top of Weight; no Wi-Fi screen, KOReader
-updates over USB; only the plugins needed for covers and sleep stay on; mods/ goes into git before
+updates over USB; only the plugins needed for covers, sleep and sync stay on; mods/ goes into git before
 the rewrite.
 
 ## Goals (as given)
