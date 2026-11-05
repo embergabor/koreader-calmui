@@ -29,8 +29,11 @@ return {
     },
 
     -- Extra font folders on the device, read at startup by patches/1-quietui-fonts.lua.
-    -- /mnt/onboard/fonts is always included. Example: { "/usr/local/Kobo/fonts" }
-    font_folders = {},
+    -- /mnt/onboard/fonts is always included. Folders that don't exist are skipped.
+    font_folders = { "/usr/local/Kobo/fonts" },
+
+    -- Write quietui-fonts.txt to the KOReader folder at each start, listing what the patch found.
+    font_report = true,
 
     -- Top-level folders of the home folder that are not books.
     exclude_folders = {
