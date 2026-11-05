@@ -38,7 +38,7 @@ local function reportFonts()
                 local mode = lfs.attributes(path, "mode")
                 if mode == "directory" then
                     if depth > 0 then walk(path, depth - 1, only_matching) end
-                elseif not only_matching or name:lower():find("rakuten", 1, true) then
+                elseif not only_matching or name:lower():find("%.[ot]t[fc]$") then
                     local kind = "unknown"
                     local f = io.open(path, "rb")
                     if f then
@@ -57,9 +57,9 @@ local function reportFonts()
         report:write(" ", folder, isDir(folder) and "" or "  (does not exist)", "\n")
         if isDir(folder) then walk(folder, 2, false) end
     end
-    report:write("Anything named rakuten elsewhere:\n")
-    for __, root in ipairs({ "/usr/local/Kobo", "/usr/share/fonts", "/mnt/onboard/.kobo" }) do
-        if isDir(root) then walk(root, 4, true) end
+    report:write("Font files elsewhere on the system:\n")
+    for __, root in ipairs({ "/usr/local", "/usr/share", "/usr/lib", "/opt", "/etc", "/mnt/onboard/.kobo" }) do
+        if isDir(root) then walk(root, 6, true) end
     end
     report:close()
 end
