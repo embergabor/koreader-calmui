@@ -106,3 +106,11 @@ Aa sheet
 Notes on the canvas
 - Elipsa, portrait only, right-hand grip. Stylus = finger. No night mode.
 - Stock KOReader menus: long-press top-left corner (not designed).
+
+## Decisions, 2026-11-05 (20 questions)
+Size, hairline style, USB screen and sleep's white bands stay. Back only in the sheet; battery and clock in its top strip.
+No highlights, no search in book, no collections, swipe-only page turns, library opens at launch, finished books stay mixed in.
+A word with no entry says "not found". Library has search and a long-press book card (details, Mark finished, Delete).
+Cogwheel: Wi-Fi, sleep timing, reading statistics, calibre wireless, sync. PDFs get the sheet with Fit, Contrast, Full refresh.
+All stock popups take our look. Top-left icons and loading bar are gone; loading progress is in the opening card.
+Sleep covers enlarge at most sleep_cover_max_upscale times, as small embedded covers show their pixels.

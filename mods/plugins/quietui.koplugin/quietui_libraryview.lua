@@ -2,7 +2,8 @@
 The library screen. It replaces the file manager's content rather than sitting on
 top of it, so the file browser is never drawn.
 
-Header: sort (Recent / Title / Author) and view (Grid / List). Swipe to change page.
+Header: search, sort (Recent / Title / Author), view (Grid / List) and settings.
+Swipe to change page. Long-press a book for its details.
 ]]
 
 local Blitbuffer = require("ffi/blitbuffer")
@@ -54,6 +55,7 @@ local LibraryView = InputContainer:extend{
     settings = nil,
     run_action = nil, -- called with the settings.gestures action for a corner long-press
     page = 1,
+    query = nil, -- what the books are filtered by, if searching
 }
 
 function LibraryView:init()
@@ -100,12 +102,19 @@ function LibraryView:bookRows(books)
     return rows
 end
 
+function LibraryView:visibleBooks()
+    if self.query then return Library.search(self.books, self.query) end
+    return self.books
+end
+
 function LibraryView:flatRows()
+    local books = self:visibleBooks()
+    self.visible_count = #books
     if self.sort ~= "author" then
-        return self:bookRows(Library.sorted(self.books, self.sort))
+        return self:bookRows(Library.sorted(books, self.sort))
     end
     local rows = {}
-    for __, author in ipairs(Library.byAuthor(self.books)) do
+    for __, author in ipairs(Library.byAuthor(books)) do
         table.insert(rows, { kind = "author", h = AUTHOR_H, name = author.name })
         for __, row in ipairs(self:bookRows(author.books)) do
             row.author = author.name
@@ -335,7 +344,7 @@ function LibraryView:gridRow(row)
             -- Every tile takes the same room, whether its title needed one line or two.
             VerticalSpan:new{ width = math.max(0, D(TITLE_H) - title:getSize().h) },
         }
-        table.insert(group, UI.tappable(tile, function() self:open(book) end))
+        table.insert(group, UI.tappable(tile, function() self:open(book) end, function() self:showCard(book) end))
     end
     return group
 end
@@ -365,7 +374,11 @@ function LibraryView:listRow(row)
             RightContainer:new{ dimen = dimen, progress },
         },
         LineWidget:new{ dimen = Geom:new{ w = w, h = D(1) }, background = UI.BLACK },
-    }, function() self:open(book) end)
+    }, function() self:open(book) end, function() self:showCard(book) end)
+end
+
+function LibraryView:showCard(book)
+    UIManager:show(require("quietui_bookcard"):new{ book = book, library = self })
 end
 
 function LibraryView:heading(row)
@@ -410,8 +423,14 @@ function LibraryView:buildHeader()
             return IconWidget:new{ icon = "appbar.settings", width = D(26), height = D(26) }
         end,
         callback = function()
-            UIManager:show(require("quietui_settings"):new{ settings = self.settings }, "ui")
+            UIManager:show(require("quietui_settings"):new{ settings = self.settings, library = self, ui = self.ui }, "ui")
         end,
+    }, UI.H(44), 12)
+    local search = UI.button({
+        content = function()
+            return IconWidget:new{ icon = "appbar.search", width = D(26), height = D(26) }
+        end,
+        callback = function() self:showSearch() end,
     }, UI.H(44), 12)
     local back = UI.button({
         content = function()
@@ -419,38 +438,51 @@ function LibraryView:buildHeader()
                 align = "center",
                 IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
                 HorizontalSpan:new{ width = D(2) },
-                UI.text(_("Back to Kobo"), UI.sans(16, 700)),
+                UI.text(self.query and _("Library") or _("Back to Kobo"), UI.sans(16, 700)),
             }
         end,
-        callback = function() self.run_action("exit") end,
+        callback = function()
+            if self.query then
+                self:setQuery(nil)
+            else
+                self.run_action("exit")
+            end
+        end,
     }, UI.H(44), 14)
-    local dimen = Geom:new{ w = self.dimen.w - 2 * D(SIDE), h = D(HEADER_H) - D(HEADER_TOP) - D(2) }
+    local right = HorizontalGroup:new{
+        align = "center",
+        search,
+        HorizontalSpan:new{ width = D(8) },
+        sort,
+        HorizontalSpan:new{ width = D(8) },
+        view,
+        HorizontalSpan:new{ width = D(8) },
+        cog,
+    }
+    local width = self.dimen.w - 2 * D(SIDE)
+    local room = width - back:getSize().w - right:getSize().w - 2 * D(14)
+    local left = HorizontalGroup:new{ align = "center", back }
+    if self.query then
+        -- What was searched for, and how many books it found, in the room that's left.
+        table.insert(left, HorizontalSpan:new{ width = D(14) })
+        table.insert(left, UI.text(T(_("“%1”  ·  %2"), self.query, self.visible_count), UI.sans(17, 700), nil, room))
+    else
+        -- On a small screen the header drops its title rather than crowd the buttons.
+        local title = UI.text(_("Library"), UI.serif(28, 700))
+        if title:getSize().w <= room then
+            table.insert(left, HorizontalSpan:new{ width = D(14) })
+            table.insert(left, title)
+        end
+    end
+    local dimen = Geom:new{ w = width, h = D(HEADER_H) - D(HEADER_TOP) - D(2) }
     return VerticalGroup:new{
         VerticalSpan:new{ width = D(HEADER_TOP) },
         HorizontalGroup:new{
             HorizontalSpan:new{ width = D(SIDE) },
             OverlapGroup:new{
                 dimen = dimen,
-                LeftContainer:new{
-                    dimen = dimen,
-                    HorizontalGroup:new{
-                        align = "center",
-                        back,
-                        HorizontalSpan:new{ width = D(14) },
-                        UI.text(_("Library"), UI.serif(28, 700)),
-                    },
-                },
-                RightContainer:new{
-                    dimen = dimen,
-                    HorizontalGroup:new{
-                        align = "center",
-                        sort,
-                        HorizontalSpan:new{ width = D(8) },
-                        view,
-                        HorizontalSpan:new{ width = D(8) },
-                        cog,
-                    },
-                },
+                LeftContainer:new{ dimen = dimen, left },
+                RightContainer:new{ dimen = dimen, right },
             },
         },
         LineWidget:new{ dimen = Geom:new{ w = self.dimen.w, h = D(2) }, background = UI.BLACK },
@@ -474,9 +506,10 @@ function LibraryView:buildPage()
             table.insert(body, self:heading(row))
         end
     end
-    if #self.books == 0 then
+    if self.visible_count == 0 then
         table.insert(body, VerticalSpan:new{ width = D(40) })
-        table.insert(body, UI.text(_("No books in the home folder."), UI.sans(18)))
+        table.insert(body, UI.text(self.query and T(_("Nothing found for “%1”."), self.query)
+            or _("No books in the home folder."), UI.sans(18), nil, self.content_w))
     end
     local footer_dimen = Geom:new{ w = self.dimen.w, h = D(FOOTER_H) }
     local footer = CenterContainer:new{
@@ -515,6 +548,47 @@ function LibraryView:rebuild()
     self:paginate()
     self.page = 1
     self:showPage()
+end
+
+function LibraryView:setQuery(query)
+    self.query = query
+    self:rebuild()
+end
+
+-- Reads the books again, after a change such as a deleted, finished or newly arrived book.
+function LibraryView:reload()
+    self.books = Library.load(self.settings)
+    self:paginate()
+    self.page = math.min(self.page, #self.pages)
+    self:showPage()
+end
+
+function LibraryView:showSearch()
+    local InputDialog = require("ui/widget/inputdialog")
+    local dialog
+    dialog = InputDialog:new{
+        title = _("Search library"),
+        input = self.query,
+        input_hint = _("Title or author"),
+        buttons = { {
+            {
+                text = _("Cancel"),
+                id = "close",
+                callback = function() UIManager:close(dialog) end,
+            },
+            {
+                text = _("Search"),
+                is_enter_default = true,
+                callback = function()
+                    local query = dialog:getInputText():match("^%s*(.-)%s*$")
+                    UIManager:close(dialog)
+                    self:setQuery(query ~= "" and query or nil)
+                end,
+            },
+        } },
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
 end
 
 function LibraryView:goToPage(page)

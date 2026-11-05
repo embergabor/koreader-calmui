@@ -1,10 +1,12 @@
 --[[--
-The Aa sheet: one tap on the page opens it, and the page between its two panels
+The sheet: one tap on the page opens it, and the page between its two panels
 is the live preview.
 
-Top strip: Library, title, Contents, page number; Light and Warm sliders.
-Bottom panel: Text tab (size, font, weight, rendering) and
+Top strip: Library, title with clock and battery, Back after a jump, Contents, page number;
+Light and Warm sliders.
+Bottom panel for books: Text tab (size, font, weight, rendering) and
 Page tab (line spacing, alignment, margins, full refresh).
+Bottom panel for fixed-layout documents such as PDFs: fit, contrast, full refresh.
 ]]
 
 local CenterContainer = require("ui/widget/container/centercontainer")
@@ -32,6 +34,7 @@ local VerticalSpan = require("ui/widget/verticalspan")
 local Input = Device.input
 local Screen = Device.screen
 local T = require("ffi/util").template
+local datetime = require("datetime")
 local _ = require("gettext")
 
 local D = UI.D
@@ -72,6 +75,21 @@ local REFRESHES = {
     { id = 6, label = _("Every 6") },
     { id = 12, label = _("Every 12") },
     { id = -1, label = _("Chapters") },
+}
+
+local FITS = {
+    { id = "page", label = _("Whole page") },
+    { id = "pagewidth", label = _("Page width") },
+    { id = "content", label = _("Content") },
+    { id = "contentwidth", label = _("Content width") },
+}
+
+local CONTRASTS = {
+    { id = 0.8, label = _("Light") },
+    { id = 1.0, label = _("Normal") },
+    { id = 1.5, label = _("Dark") },
+    { id = 2.0, label = _("Darker") },
+    { id = 4.0, label = _("Darkest") },
 }
 
 local LIGHT_ROW_H = 48
@@ -120,6 +138,27 @@ function Sheet:currentPage()
     return self.ui:getCurrentPage(), self.ui.document:getPageCount()
 end
 
+-- The page Back would return to, if a jump has been made.
+function Sheet:backPage()
+    local link = self.ui.link
+    local location = link.location_stack and link.location_stack[#link.location_stack]
+    if not location then return end
+    if self.ui.rolling then
+        return location.xpointer and self.ui.document:getPageFromXPointer(location.xpointer)
+    end
+    return location[1] and location[1].page
+end
+
+function Sheet:statusText()
+    local status = datetime.secondsToHour(os.time(), G_reader_settings:isTrue("twelve_hour_clock"))
+    if Device:hasBattery() then
+        local power = Device:getPowerDevice()
+        status = status .. "  ·  " .. power:getCapacity() .. "%"
+        if power:isCharging() then status = status .. " " .. _("charging") end
+    end
+    return status
+end
+
 function Sheet:buildTopRow()
     local page, total = self:currentPage()
     local library = UI.button({
@@ -149,9 +188,21 @@ function Sheet:buildTopRow()
         end,
     })
 
-    local right = HorizontalGroup:new{
-        align = "center", contents, HorizontalSpan:new{ width = D(8) }, page_button,
-    }
+    local right = HorizontalGroup:new{ align = "center" }
+    local back_page = self:backPage()
+    if back_page then
+        table.insert(right, UI.button({
+            text = T(_("Back to %1"), back_page),
+            callback = function()
+                self:closeThen(function() self.ui.link:onGoBackLink() end)
+            end,
+        }))
+        table.insert(right, HorizontalSpan:new{ width = D(8) })
+    end
+    table.insert(right, contents)
+    table.insert(right, HorizontalSpan:new{ width = D(8) })
+    table.insert(right, page_button)
+
     local title_w = self.dimen.w - D(16) - D(24) - library:getSize().w - right:getSize().w - D(24)
     local props = self.ui.doc_props or {}
     return HorizontalGroup:new{
@@ -160,7 +211,11 @@ function Sheet:buildTopRow()
         library,
         CenterContainer:new{
             dimen = Geom:new{ w = title_w + D(24), h = library:getSize().h },
-            UI.text(props.display_title or props.title or "", UI.serif(18, 700), nil, title_w),
+            VerticalGroup:new{
+                align = "center",
+                UI.text(props.display_title or props.title or "", UI.serif(18, 700), nil, title_w),
+                UI.text(self:statusText(), UI.sans(14), nil, title_w),
+            },
         },
         right,
         HorizontalSpan:new{ width = D(24) },
@@ -447,23 +502,61 @@ function Sheet:buildPageBody()
     }
 end
 
+-- A fixed-layout document's options.
+function Sheet:buildFixedBody()
+    local gap = D(16)
+    return VerticalGroup:new{
+        align = "left",
+        labelled(_("Fit"), UI.choices(FITS, self.ui.zooming.zoom_mode, self.content_w, UI.H(48), function(opt)
+            self.ui:handleEvent(Event:new("SetZoomMode", opt.id))
+            self:refresh()
+        end)),
+        VerticalSpan:new{ width = gap },
+        labelled(_("Contrast"), UI.choices(CONTRASTS, closest(CONTRASTS, self.ui.view.state.gamma).id, self.content_w,
+            UI.H(48), function(opt)
+                self.ui.document.configurable.contrast = opt.id
+                self.ui:handleEvent(Event:new("GammaUpdate", opt.id, true))
+                UIManager:setDirty(self.ui.view.dialog, "partial")
+                self:refresh()
+            end)),
+        VerticalSpan:new{ width = gap },
+        labelled(_("Full refresh"), UI.choices(REFRESHES, UIManager.FULL_REFRESH_COUNT, self.content_w, UI.H(48),
+            function(opt)
+                UIManager:setRefreshRate(opt.id, opt.id)
+                self:refresh()
+            end)),
+    }
+end
+
 -- Both tabs share one height, so the page doesn't jump when switching.
 function Sheet:panelHeight()
     if not self.panel_h then
-        local tallest = math.max(self:buildTextBody():getSize().h, self:buildPageBody():getSize().h)
+        local tallest
+        if self.ui.rolling then
+            tallest = math.max(self:buildTextBody():getSize().h, self:buildPageBody():getSize().h)
+        else
+            tallest = self:buildFixedBody():getSize().h
+        end
         self.panel_h = D(2) + D(18) + UI.H(44) + 2 * D(UI.style.border) + D(18) + tallest + D(22)
     end
     return self.panel_h
 end
 
 function Sheet:buildPanel()
-    local tabs = UI.group({ {
-        { text = _("Text"), selected = self.tab == "text", callback = function() self:setTab("text") end },
-        { text = _("Page"), selected = self.tab == "page", callback = function() self:setTab("page") end },
-    } }, D(246), UI.H(44))
+    local tabs, body
+    if self.ui.rolling then
+        tabs = UI.group({ {
+            { text = _("Text"), selected = self.tab == "text", callback = function() self:setTab("text") end },
+            { text = _("Page"), selected = self.tab == "page", callback = function() self:setTab("page") end },
+        } }, D(246), UI.H(44))
+        body = self.tab == "text" and self:buildTextBody() or self:buildPageBody()
+    else
+        local title = (self.ui.document.file:match("%.([^.]+)$") or ""):upper()
+        tabs = UI.text(title, UI.serif(22, 700))
+        body = self:buildFixedBody()
+    end
     local done = UI.button({ text = _("Done"), callback = function() self:onClose() end })
     local bar = Geom:new{ w = self.content_w, h = done:getSize().h }
-    local body = self.tab == "text" and self:buildTextBody() or self:buildPageBody()
     return FrameContainer:new{
         width = self.dimen.w,
         padding = 0,
@@ -611,6 +704,7 @@ function Sheet:showJumpDialog()
                     local target = tonumber(dialog:getInputText())
                     UIManager:close(dialog)
                     if target then
+                        ui.link:addCurrentLocationToStack()
                         ui:handleEvent(Event:new("GotoPage", math.max(1, math.min(total, target))))
                     end
                 end,

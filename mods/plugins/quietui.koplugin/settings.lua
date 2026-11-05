@@ -55,6 +55,8 @@ return {
         autosuspend = true,  -- sleep after being idle
         autostandby = true,  -- low power between page turns
         kosync = true,       -- reading position sync
+        statistics = true,   -- reading time, shown from the cogwheel
+        calibre = true,      -- calibre wireless, from the cogwheel
     },
 
     -- Overall size of every screen, stock ones included. 1 is the design's size; book text isn't affected.
@@ -68,6 +70,10 @@ return {
     button_style = "hairline",
 
     hyphenation = false,
+
+    -- The sleep screen enlarges a book's cover at most this many times. Small embedded covers stay
+    -- a little smaller with white around them, as their pixels show when enlarged further.
+    sleep_cover_max_upscale = 2.5,
 
     -- KOReader sync server. Leave out for KOReader's public one.
     -- sync_server = "https://example.com",

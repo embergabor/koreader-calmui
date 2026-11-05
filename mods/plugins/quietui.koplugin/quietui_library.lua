@@ -9,11 +9,12 @@ books out on a Kobo, so no document has to be opened:
 local BookList = require("ui/widget/booklist")
 local DocumentRegistry = require("document/documentregistry")
 local ReadHistory = require("readhistory")
+local Utf8Proc = require("ffi/utf8proc")
 local ffiUtil = require("ffi/util")
 local filemanagerutil = require("apps/filemanager/filemanagerutil")
 local lfs = require("libs/libkoreader-lfs")
 
-local Library = {}
+local Library = { INBOX = "Calibre" }
 
 local UNSORTED = "Unsorted"
 local NAME_PARTICLES = { le = true, la = true, de = true, du = true, van = true, von = true, der = true }
@@ -81,6 +82,16 @@ local function parsePath(file, home)
     for part in file:sub(#home + 2):gmatch("[^/]+") do
         table.insert(parts, part)
     end
+    -- Books sent over calibre wireless arrive in their own folder, named "Title - Author".
+    if parts[1] == Library.INBOX and #parts > 1 then
+        table.remove(parts, 1)
+        if #parts == 1 then
+            local title, author = stripExtension(parts[1]):match("^(.+) %- ([^-]+)$")
+            if title then
+                return { file = file, title = prettifyTitle(title), author = author }
+            end
+        end
+    end
     local stem = stripExtension(parts[#parts])
     local book = {
         file = file,
@@ -121,6 +132,39 @@ local function describe(file, home)
     return book
 end
 
+-- Lower case without accents, so "szep" finds "Szép".
+local ACCENTS = {
+    ["á"] = "a", ["à"] = "a", ["â"] = "a", ["ä"] = "a", ["ã"] = "a", ["å"] = "a",
+    ["é"] = "e", ["è"] = "e", ["ê"] = "e", ["ë"] = "e",
+    ["í"] = "i", ["ì"] = "i", ["î"] = "i", ["ï"] = "i",
+    ["ó"] = "o", ["ò"] = "o", ["ô"] = "o", ["ö"] = "o", ["ő"] = "o", ["õ"] = "o", ["ø"] = "o",
+    ["ú"] = "u", ["ù"] = "u", ["û"] = "u", ["ü"] = "u", ["ű"] = "u",
+    ["ç"] = "c", ["ñ"] = "n", ["ß"] = "ss", ["’"] = "'",
+}
+
+local function searchable(str)
+    return (Utf8Proc.lowercase(str):gsub("[%z\1-\127\194-\244][\128-\191]*", ACCENTS))
+end
+
+--- Books whose title, author or series contains every word of the query.
+function Library.search(books, query)
+    local words = {}
+    for word in searchable(query):gmatch("%S+") do table.insert(words, word) end
+    local found = {}
+    for __, book in ipairs(books) do
+        local haystack = searchable(book.title .. " " .. book.author .. " " .. (book.series or ""))
+        local matches = true
+        for __, word in ipairs(words) do
+            if not haystack:find(word, 1, true) then
+                matches = false
+                break
+            end
+        end
+        if matches then table.insert(found, book) end
+    end
+    return found
+end
+
 function Library.load(settings)
     local home = ffiUtil.realpath(filemanagerutil.getHomeFolder())
     local files = {}
@@ -135,6 +179,8 @@ function Library.load(settings)
     for __, file in ipairs(files) do
         local book = describe(file, home)
         book.recent = recent[file] or math.huge
+        local entry = recent[file] and ReadHistory.hist[recent[file]]
+        book.last_read = entry and entry.time
         table.insert(books, book)
     end
     return books

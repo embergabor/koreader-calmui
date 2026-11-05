@@ -2,9 +2,9 @@
 Quiet UI: KOReader reduced to two screens.
 
 Library: replaces the file manager's content (see setupLayout below).
-Reader: one tap opens the Aa sheet, swipes turn pages, nothing else on screen.
-Stock menus are only reachable with a long-press in the top-left corner.
-PDFs and other fixed-layout documents keep the stock reader controls.
+Reader: one tap opens the sheet, swipes turn pages, nothing else on screen.
+Books and fixed-layout documents such as PDFs share the sheet, each with its own options.
+Stock popups keep their logic and take this UI's look (see quietui_popups.lua).
 
 @module koplugin.QuietUI
 --]]--
@@ -15,7 +15,6 @@ local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local logger = require("logger")
-local lfs = require("libs/libkoreader-lfs")
 local _ = require("gettext")
 
 local plugin_dir = debug.getinfo(1, "S").source:match("^@(.*)/[^/]*$") or "."
@@ -31,6 +30,8 @@ end
 
 local settings = loadSettings()
 require("quietui_ui").setScale(settings.ui_scale)
+require("quietui_ui").setStyle(settings.button_style)
+require("quietui_popups").apply()
 
 local QuietUI = WidgetContainer:extend{
     name = "quietui",
@@ -88,8 +89,27 @@ function MassStorage:start(with_confirmation)
     UIManager:show(self.usbms_widget)
 end
 
--- Sleep shows the book's cover at its full resolution (see applyDefaults); dither it,
--- so its gradients don't band on the screen's 16 grays.
+-- A book's embedded cover can be tiny (some are 300 x 450). Blown up to fill the screen, its pixels and
+-- JPEG noise show: stop at a limit and leave the rest white. Takes ownership of image.
+local function limitCoverUpscale(image)
+    local Blitbuffer = require("ffi/blitbuffer")
+    local RenderImage = require("ui/renderimage")
+    local limit = settings.sleep_cover_max_upscale or 2.5
+    local screen_w, screen_h = Device.screen:getWidth(), Device.screen:getHeight()
+    local image_w, image_h = image:getWidth(), image:getHeight()
+    if math.min(screen_w / image_w, screen_h / image_h) <= limit then return image end
+    local w, h = math.floor(image_w * limit), math.floor(image_h * limit)
+    local scaled = RenderImage:scaleBlitBuffer(image, w, h, true)
+    -- The sleep screen fits whatever it's given to the screen, so give it a whole screen.
+    local page = Blitbuffer.new(screen_w, screen_h, scaled:getType())
+    page:fill(Blitbuffer.COLOR_WHITE)
+    page:blitFrom(scaled, math.floor((screen_w - w) / 2), math.floor((screen_h - h) / 2), 0, 0, w, h)
+    scaled:free()
+    return page
+end
+
+-- Sleep shows the book's cover (see applyDefaults); dither it, so its gradients don't band on the
+-- screen's 16 grays.
 -- A book without a cover would fall back to KOReader's logo: leave the page on screen instead.
 local Screensaver = require("ui/screensaver")
 local screensaverSetup = Screensaver.setup
@@ -100,12 +120,70 @@ function Screensaver:setup(event, event_message)
         self.image_file = nil
         self.show_message = false
     end
+    if self.image then
+        self.image = limitCoverUpscale(self.image)
+    end
 end
 
 local ScreenSaverWidget = require("ui/widget/screensaverwidget")
 function ScreenSaverWidget:onShow()
     UIManager:setDirty(self, function() return "full", self[1].dimen, true end)
     return true
+end
+
+-- KOReader's top-left status icons say that a book is being re-laid out in the background after a
+-- settings change, or that a long-press has been held for a while. Nothing depends on seeing them.
+local ReaderFlipping = require("apps/reader/modules/readerflipping")
+function ReaderFlipping:paintTo() end
+function ReaderFlipping:getRefreshRegion()
+    return require("ui/geometry"):new{ x = 0, y = 0, w = 1, h = 1 }
+end
+
+-- The loading bar lives in the opening card rather than at the top left of the screen.
+local ReaderRolling = require("apps/reader/modules/readerrolling")
+function ReaderRolling:showEngineProgress(percent)
+    require("quietui_opening").showProgress(percent)
+end
+
+-- A word without an entry just says so, instead of offering other ways to search.
+local ReaderDictionary = require("apps/reader/modules/readerdictionary")
+function ReaderDictionary:showNoResultsDialog(word, __, __, __, __, __, lookupCancelled)
+    self:dismissLookupInfo()
+    lookupCancelled()
+    UIManager:show(require("ui/widget/infomessage"):new{
+        text = require("ffi/util").template(_("“%1” not found"), word),
+        timeout = 2,
+    })
+    return true
+end
+
+local ReaderStatus = require("apps/reader/modules/readerstatus")
+local stockEndOfBook = ReaderStatus.onEndOfBook
+function ReaderStatus:onEndOfBook()
+    if (G_reader_settings:readSetting("end_document_action") or "pop-up") ~= "pop-up" then
+        return stockEndOfBook(self)
+    end
+    local top = UIManager:getTopmostVisibleWidget() or {}
+    if top.name == "end_document" then return end
+    local function toLibrary()
+        UIManager:nextTick(function() self:openFileBrowser() end)
+    end
+    UIManager:show(require("quietui_dialog"):new{
+        name = "end_document",
+        title = _("End of book"),
+        buttons = {
+            { text = _("Go to beginning"), callback = function() self.ui.gotopage:onGoToBeginning() end },
+            { text = _("Library"), callback = toLibrary },
+            {
+                text = _("Mark finished"),
+                selected = true,
+                callback = function()
+                    self:markBook(true)
+                    toLibrary()
+                end,
+            },
+        },
+    })
 end
 
 -- Same as stock, except for the card shown while the book loads. A seamless reload after a settings
@@ -126,6 +204,7 @@ function ReaderUI:showReaderCoroutine(file, provider, seamless)
         if err ~= nil or ok == false then
             io.stderr:write("[!] doShowReader coroutine crashed:\n")
             io.stderr:write(debug.traceback(co, err, 1))
+            require("quietui_opening").finish()
             -- Restore input if we crashed before ReaderUI has restored it
             Device:setIgnoreInput(false)
             Device.input:inhibitInputUntil(0.2)
@@ -161,21 +240,7 @@ local function applyDefaults()
     G:makeTrue("input_ignore_gsensor")
     if Device:hasGSensor() then Device:toggleGSensor(false) end
 
-    -- Unused stock plugins are never loaded (takes effect from the next start).
-    local disabled = {}
-    local keep = settings.keep_plugins or {}
-    local ok, iter, dir_obj = pcall(lfs.dir, "plugins")
-    if ok then
-        for entry in iter, dir_obj do
-            local name = entry:match("^(.+)%.koplugin$")
-            if name and name ~= "quietui" and not keep[name] then
-                disabled[name] = true
-            end
-        end
-    end
-    G:saveSetting("plugins_disabled", disabled)
-
-    if keep.kosync then
+    if (settings.keep_plugins or {}).kosync then
         require("quietui_sync").reapply()
     end
 
@@ -197,7 +262,6 @@ local function applyDefaults()
 end
 
 function QuietUI:init()
-    require("quietui_ui").setStyle(settings.button_style)
     applyDefaults()
     if self.ui.document then
         self:initReader()
@@ -246,17 +310,16 @@ end
 -- Reader --------------------------------------------------------------------
 
 function QuietUI:initReader()
-    self.is_active = self.ui.rolling ~= nil
-    if not self.is_active then return end
-
     local noop = function() end
     self.ui.menu.onTapShowMenu = noop
     self.ui.menu.onSwipeShowMenu = noop
     self.ui.config.onTapShowConfigMenu = noop
     self.ui.config.onSwipeShowConfigMenu = noop
 
-    -- Read by ReaderTypography right after plugins are loaded.
-    self.ui.doc_settings:saveSetting("hyphenation", settings.hyphenation == true)
+    if self.ui.rolling then
+        -- Read by ReaderTypography right after plugins are loaded.
+        self.ui.doc_settings:saveSetting("hyphenation", settings.hyphenation == true)
+    end
 
     -- Footer: only "1 / 412", centred.
     local footer = self.ui.view.footer
@@ -273,7 +336,7 @@ function QuietUI:initReader()
 end
 
 function QuietUI:registerZones()
-    require("quietui_light").registerEdgeZones(self.ui, self:edgeActions(), { "rolling_pan" })
+    require("quietui_light").registerEdgeZones(self.ui, self:edgeActions(), { self.ui.rolling and "rolling_pan" or "paging_pan" })
     local action = settings.gestures.hold_top_left
     if action and action ~= "none" then
         self.ui:registerTouchZones({
@@ -326,16 +389,17 @@ end
 
 -- Other modules register their zones again on these events, which drops our overrides.
 function QuietUI:onReaderReady()
-    if self.is_active then self:registerZones() end
+    require("quietui_opening").finish()
+    if self.ui.document then self:registerZones() end
 end
 
 function QuietUI:onSetDimensions()
-    if self.is_active then self:registerZones() end
+    if self.ui.document then self:registerZones() end
 end
 
 -- After the document is loaded and before it is rendered.
 function QuietUI:onPreRenderDocument()
-    if not self.is_active then return end
+    if not self.ui.rolling then return end
     local Presets = require("quietui_presets")
     Presets.applyAntialias(self.ui, Presets.currentRender(self.ui))
 end

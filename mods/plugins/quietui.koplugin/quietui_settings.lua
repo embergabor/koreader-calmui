@@ -1,6 +1,6 @@
 --[[--
-The library's cogwheel: a small sheet. For now it only holds the KOReader sync account.
-Tap outside it or Done to close.
+The library's cogwheel: a small sheet with Wi-Fi, sleep timing, reading statistics,
+calibre wireless and the KOReader sync account. Tap outside it or Done to close.
 ]]
 
 local Device = require("device")
@@ -28,8 +28,20 @@ local _ = require("gettext")
 
 local D = UI.D
 
+local SLEEP_MINUTES = {
+    { id = 5, label = _("5 min") },
+    { id = 15, label = _("15 min") },
+    { id = 30, label = _("30 min") },
+    { id = 60, label = _("1 hour") },
+    { id = -1, label = _("Never") },
+}
+
+local ROW_H = 52
+
 local Settings = InputContainer:extend{
     settings = nil,
+    library = nil,
+    ui = nil,
 }
 
 function Settings:init()
@@ -42,6 +54,176 @@ function Settings:init()
         TapOutside = { GestureRange:new{ ges = "tap", range = self.dimen } },
     }
     self:update()
+    self:watchCalibre()
+end
+
+-- One setting: a label, a line or two about it on the left, its controls on the right.
+function Settings:row(label, status, detail, control)
+    local room = self.content_w - control:getSize().w - D(16)
+    local dimen = Geom:new{ w = self.content_w, h = D(ROW_H) }
+    local text = VerticalGroup:new{
+        align = "left",
+        UI.pinned(UI.text(status, UI.sans(18, 700), nil, room), D(25)),
+    }
+    if detail then
+        table.insert(text, UI.pinned(UI.text(detail, UI.sans(15), nil, room), D(21)))
+    end
+    return VerticalGroup:new{
+        align = "left",
+        UI.label(label),
+        VerticalSpan:new{ width = D(6) },
+        OverlapGroup:new{
+            dimen = dimen,
+            LeftContainer:new{ dimen = dimen, text },
+            RightContainer:new{ dimen = dimen, control },
+        },
+    }
+end
+
+function Settings:buildWifi()
+    local NetworkMgr = require("ui/network/manager")
+    local on = NetworkMgr:isWifiOn()
+    local status, detail
+    if on and NetworkMgr:isConnected() then
+        local network = NetworkMgr:getCurrentNetwork()
+        status = T(_("Connected to %1"), network and network.ssid or _("Wi-Fi"))
+    elseif on then
+        status = _("On, not connected")
+    else
+        status = _("Off")
+    end
+    local after = function() self:refresh() end
+    local controls = HorizontalGroup:new{ align = "center" }
+    if on then
+        table.insert(controls, UI.button({
+            text = _("Networks"),
+            callback = function()
+                NetworkMgr.wifi_toggle_long_press = true
+                NetworkMgr:reconnectOrShowNetworkMenu(after, true)
+            end,
+        }))
+        table.insert(controls, HorizontalSpan:new{ width = D(8) })
+    end
+    table.insert(controls, UI.choices({
+        { id = false, label = _("Off") },
+        { id = true, label = _("On") },
+    }, on, nil, UI.H(44), function(opt)
+        if opt.id == on then return end
+        if opt.id then
+            NetworkMgr:toggleWifiOn(after, false, true)
+        else
+            NetworkMgr:toggleWifiOff(after, true)
+        end
+        self:refresh()
+    end))
+    return self:row(_("Wi-Fi"), status, detail, controls)
+end
+
+function Settings:buildSleep()
+    local seconds = G_reader_settings:readSetting("auto_suspend_timeout_seconds", 15 * 60)
+    local current = seconds > 0 and math.floor(seconds / 60) or -1
+    local status = current > 0 and T(_("After %1 min without use"), current) or _("Only with the power button")
+    local choices = UI.choices(SLEEP_MINUTES, current, nil, UI.H(44), function(opt)
+        local value = opt.id > 0 and opt.id * 60 or -1
+        G_reader_settings:saveSetting("auto_suspend_timeout_seconds", value)
+        local autosuspend = self.ui and self.ui.autosuspend
+        if autosuspend then
+            autosuspend.auto_suspend_timeout_seconds = value
+            autosuspend:_unschedule()
+            autosuspend:_start()
+        end
+        self:refresh()
+    end)
+    return self:row(_("Sleep"), status, nil, choices)
+end
+
+function Settings:buildStats()
+    local Stats = require("quietui_stats")
+    local periods = Stats.read()
+    local today = periods[1]
+    local week = periods[2]
+    local status = today and T(_("%1 today"), Stats.duration(today.seconds)) or _("Nothing recorded yet")
+    local detail = week and T(_("%1 this week"), Stats.duration(week.seconds)) or nil
+    local button = UI.button({
+        text = _("Open"),
+        callback = function()
+            local settings, library, ui = self.settings, self.library, self.ui
+            self:onClose()
+            UIManager:show(Stats:new{
+                on_close = function()
+                    UIManager:show(Settings:new{ settings = settings, library = library, ui = ui }, "ui")
+                end,
+            }, "ui")
+        end,
+    })
+    return self:row(_("Reading statistics"), status, detail, button)
+end
+
+-- Calibre's plugin runs in its own coroutine: follow the connection while this sheet is open,
+-- and show books as they arrive.
+function Settings:calibreClient()
+    if not (self.ui and self.ui.calibre) then return end
+    return require("wireless")
+end
+
+function Settings:watchCalibre()
+    local client = self:calibreClient()
+    if not client then return end
+    local CalibreMetadata = require("metadata")
+    if not CalibreMetadata.quietui_watched then
+        CalibreMetadata.quietui_watched = true
+        local saveBookList = CalibreMetadata.saveBookList
+        CalibreMetadata.saveBookList = function(...)
+            saveBookList(...)
+            local library = require("apps/filemanager/filemanager").instance
+            if library and library[1] and library[1].reload then library[1]:reload() end
+        end
+    end
+    self.calibre_connected = client.calibre_socket ~= nil
+    self.calibre_watch = function()
+        local connected = client.calibre_socket ~= nil
+        if connected ~= self.calibre_connected then
+            self.calibre_connected = connected
+            self:refresh()
+        end
+        UIManager:scheduleIn(1, self.calibre_watch)
+    end
+    UIManager:scheduleIn(1, self.calibre_watch)
+end
+
+function Settings:connectCalibre(client)
+    -- Stock asks for a folder first. Calibre's books get one of their own in the home folder.
+    local home = require("apps/filemanager/filemanagerutil").getHomeFolder()
+    local lfs = require("libs/libkoreader-lfs")
+    local inbox = G_reader_settings:readSetting("inbox_dir")
+    if home and not (inbox and lfs.attributes(inbox, "mode") == "directory") then
+        inbox = home .. "/" .. require("quietui_library").INBOX
+        if lfs.attributes(inbox, "mode") ~= "directory" then lfs.mkdir(inbox) end
+        G_reader_settings:saveSetting("inbox_dir", inbox)
+    end
+    client:connect()
+end
+
+function Settings:buildCalibre()
+    local client = self:calibreClient()
+    if not client then return end
+    local connected = client.calibre_socket ~= nil
+    local status = connected and _("Connected") or _("Not connected")
+    local detail = connected and _("Send books from calibre now.")
+        or _("In calibre, start the wireless device connection first.")
+    local button = UI.button({
+        text = connected and _("Disconnect") or _("Connect"),
+        callback = function()
+            if client.calibre_socket then
+                client:disconnect()
+                if self.library then self.library:reload() end
+            else
+                self:connectCalibre(client)
+            end
+            self:refresh()
+        end,
+    })
+    return self:row(_("Calibre wireless"), status, detail, button)
 end
 
 function Settings:buildSync()
@@ -65,24 +247,31 @@ function Settings:buildSync()
             end
         end,
     })
-    local dimen = Geom:new{ w = self.content_w, h = D(52) }
-    return VerticalGroup:new{
-        align = "left",
-        UI.label(_("KOReader sync")),
-        VerticalSpan:new{ width = D(8) },
-        OverlapGroup:new{
-            dimen = dimen,
-            LeftContainer:new{
-                dimen = dimen,
-                VerticalGroup:new{
-                    align = "left",
-                    UI.pinned(UI.text(status, UI.sans(18, 700), nil, self.content_w - D(128)), D(25)),
-                    UI.pinned(UI.text(detail, UI.sans(15), nil, self.content_w - D(128)), D(21)),
-                },
-            },
-            RightContainer:new{ dimen = dimen, button },
-        },
-    }
+    return self:row(_("KOReader sync"), status, detail, button)
+end
+
+function Settings:buildSections()
+    local sections = VerticalGroup:new{ align = "left" }
+    for __, section in ipairs{
+        self:buildWifi(),
+        self:buildSleep(),
+        self:buildStats(),
+        self:buildCalibre() or false,
+        self:buildSync(),
+    } do
+        if section then
+            table.insert(sections, VerticalSpan:new{ width = D(16) })
+            table.insert(sections, section)
+            table.insert(sections, VerticalSpan:new{ width = D(16) })
+            table.insert(sections, LineWidget:new{
+                dimen = Geom:new{ w = self.content_w, h = D(UI.style.rule) },
+                background = UI.BLACK,
+            })
+        end
+    end
+    table.remove(sections) -- no rule under the last one
+    table.insert(sections, VerticalSpan:new{ width = D(8) })
+    return sections
 end
 
 function Settings:update()
@@ -106,9 +295,7 @@ function Settings:update()
                         LeftContainer:new{ dimen = bar, UI.text(_("Settings"), UI.serif(24, 700)) },
                         RightContainer:new{ dimen = bar, done },
                     },
-                    VerticalSpan:new{ width = D(18) },
-                    self:buildSync(),
-                    VerticalSpan:new{ width = D(24) },
+                    self:buildSections(),
                 },
             },
         },
@@ -182,6 +369,10 @@ function Settings:onTapOutside(__, ges)
     local d = self.panel.dimen
     if d and ges.pos.y >= d.y then return true end
     return self:onClose()
+end
+
+function Settings:onCloseWidget()
+    if self.calibre_watch then UIManager:unschedule(self.calibre_watch) end
 end
 
 function Settings:onClose()

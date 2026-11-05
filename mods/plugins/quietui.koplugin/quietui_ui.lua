@@ -68,8 +68,12 @@ function UI.H(px)
 end
 
 -- Font:getFace() scales by scaleBySize(), so divide that back out.
+function UI.fontUnits(px)
+    return px * pixelsPerBoard() / (Screen:scaleBySize(1000) / 1000)
+end
+
 function UI.face(file, px, fallback)
-    local size = px * pixelsPerBoard() / (Screen:scaleBySize(1000) / 1000)
+    local size = UI.fontUnits(px)
     return Font:getFace(file, size) or Font:getFace(fallback or "NotoSans-Regular.ttf", size)
 end
 
@@ -115,7 +119,7 @@ function UI.canvas(w, h, paint)
 end
 
 --- Anything tappable.
-local Tappable = InputContainer:extend{ callback = nil }
+local Tappable = InputContainer:extend{ callback = nil, hold_callback = nil }
 
 function Tappable:init()
     local size = self[1]:getSize()
@@ -123,6 +127,9 @@ function Tappable:init()
     self.ges_events = {
         Tap = { GestureRange:new{ ges = "tap", range = function() return self.dimen end } },
     }
+    if self.hold_callback then
+        self.ges_events.Hold = { GestureRange:new{ ges = "hold", range = function() return self.dimen end } }
+    end
 end
 
 function Tappable:onTap()
@@ -130,8 +137,13 @@ function Tappable:onTap()
     return true
 end
 
-function UI.tappable(widget, callback)
-    return Tappable:new{ callback = callback, widget }
+function Tappable:onHold()
+    self.hold_callback()
+    return true
+end
+
+function UI.tappable(widget, callback, hold_callback)
+    return Tappable:new{ callback = callback, hold_callback = hold_callback, widget }
 end
 
 -- Clears the part of a square corner outside its rounded border.
