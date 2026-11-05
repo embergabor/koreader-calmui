@@ -58,7 +58,7 @@ return {
     },
 
     -- How heavy buttons and outlines are: "current", "thin", "slim", "open" or "hairline".
-    button_style = "current",
+    button_style = "hairline",
 
     hyphenation = false,
 
