@@ -29,7 +29,7 @@ local _ = require("gettext")
 local D = UI.D
 
 -- Board pixels, matching the library.
-local HEADER_H, FOOTER_H, SIDE, PAD, ROW_H, INDENT = 76, 56, 32, 8, 56, 24
+local HEADER_H, HEADER_TOP, FOOTER_H, SIDE, PAD, ROW_H, INDENT = 90, 14, 56, 32, 8, 56, 24
 
 local Contents = InputContainer:extend{
     ui = nil,
@@ -62,9 +62,10 @@ function Contents:init()
 end
 
 function Contents:buildHeader()
-    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), UI.H(44))
-    local dimen = Geom:new{ w = self.dimen.w - D(SIDE) - D(24), h = D(HEADER_H) - D(2) }
+    local done = UI.button({ text = _("Done"), callback = function() self:onClose() end })
+    local dimen = Geom:new{ w = self.dimen.w - 2 * D(SIDE), h = D(HEADER_H) - D(HEADER_TOP) - D(2) }
     return VerticalGroup:new{
+        VerticalSpan:new{ width = D(HEADER_TOP) },
         HorizontalGroup:new{
             HorizontalSpan:new{ width = D(SIDE) },
             OverlapGroup:new{

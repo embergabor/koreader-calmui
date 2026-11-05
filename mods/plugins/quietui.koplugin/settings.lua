@@ -61,6 +61,9 @@ return {
     -- Keep it at 0.9 or above.
     ui_scale = 1,
 
+    -- Books per row in the library's grid.
+    library_columns = 4,
+
     -- How heavy buttons and outlines are: "current", "thin", "slim", "open" or "hairline".
     button_style = "hairline",
 

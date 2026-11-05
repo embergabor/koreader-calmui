@@ -122,33 +122,32 @@ end
 
 function Sheet:buildTopRow()
     local page, total = self:currentPage()
-    local library = UI.group({ {
-        {
-            content = function()
-                return HorizontalGroup:new{
-                    align = "center",
-                    IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
-                    HorizontalSpan:new{ width = D(2) },
-                    UI.text(_("Library"), UI.sans(17, 700)),
-                }
-            end,
-            callback = function() self:closeBook() end,
-        },
-    } }, D(112), UI.H(40))
-    local contents = UI.group({ {
-        { text = _("Contents"), callback = function()
+    local library = UI.button({
+        content = function()
+            return HorizontalGroup:new{
+                align = "center",
+                IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
+                HorizontalSpan:new{ width = D(2) },
+                UI.text(_("Library"), UI.sans(17, 700)),
+            }
+        end,
+        callback = function() self:closeBook() end,
+    }, UI.H(44), 14)
+    local contents = UI.button({
+        text = _("Contents"),
+        callback = function()
             self:closeThen(function()
                 UIManager:show(require("quietui_contents"):new{ ui = self.ui }, "ui")
             end)
-        end },
-    } }, D(100), UI.H(40))
-    local page_label = T("%1 / %2", page, total)
-    local page_width = UI.text(page_label, UI.sans(15, 700)):getSize().w + D(24)
-    local page_button = UI.group({ {
-        { text = page_label, face = UI.sans(15, 700), callback = function()
+        end,
+    })
+    local page_button = UI.button({
+        text = T("%1 / %2", page, total),
+        face = UI.sans(15, 700),
+        callback = function()
             self:closeThen(function() self:showJumpDialog() end)
-        end },
-    } }, math.max(page_width, D(84)), UI.H(40))
+        end,
+    })
 
     local right = HorizontalGroup:new{
         align = "center", contents, HorizontalSpan:new{ width = D(8) }, page_button,
@@ -160,7 +159,7 @@ function Sheet:buildTopRow()
         HorizontalSpan:new{ width = D(16) },
         library,
         CenterContainer:new{
-            dimen = Geom:new{ w = title_w + D(24), h = UI.H(60) - D(1) },
+            dimen = Geom:new{ w = title_w + D(24), h = library:getSize().h },
             UI.text(props.display_title or props.title or "", UI.serif(18, 700), nil, title_w),
         },
         right,
@@ -209,13 +208,19 @@ function Sheet:buildStrip()
     local w = self.dimen.w
     local rows = VerticalGroup:new{
         align = "left",
+        VerticalSpan:new{ width = D(14) },
         self:buildTopRow(),
+        VerticalSpan:new{ width = D(12) },
         LineWidget:new{ dimen = Geom:new{ w = w, h = D(1) }, background = UI.BLACK },
+        VerticalSpan:new{ width = D(10) },
     }
     if Light.hasBrightness() then
         table.insert(rows, self:lightRow(_("Light"), Light.brightness(), 1, 100, function(v)
             Light.setBrightness(v)
         end))
+    end
+    if Light.hasBrightness() and Light.hasWarmth() then
+        table.insert(rows, VerticalSpan:new{ width = D(10) })
     end
     if Light.hasWarmth() then
         local step = Light.warmthStep()
@@ -223,6 +228,7 @@ function Sheet:buildStrip()
             Light.setWarmth(v)
         end))
     end
+    table.insert(rows, VerticalSpan:new{ width = D(10) })
     table.insert(rows, LineWidget:new{ dimen = Geom:new{ w = w, h = D(2) }, background = UI.BLACK })
     return FrameContainer:new{
         width = w,
@@ -406,13 +412,13 @@ function Sheet:buildPageBody()
         HorizontalGroup:new{
             align = "top",
             labelled(_("Line spacing"), UI.choices(spacings, closest(SPACINGS, configurable.line_spacing).id,
-                spacing_w, UI.H(64), function(opt)
+                spacing_w, UI.H(72), function(opt)
                     Presets.setLineSpacing(self.ui, opt.id)
                     self:refresh()
                 end)),
             HorizontalSpan:new{ width = col_gap },
             labelled(_("Alignment"), UI.choices(aligns, Presets.isLeftAligned(self.ui) and "left" or "justify",
-                align_w, UI.H(64), function(opt)
+                align_w, UI.H(72), function(opt)
                     Presets.setAlignment(self.ui, opt.id == "left")
                     self:refresh()
                 end)),
@@ -421,13 +427,13 @@ function Sheet:buildPageBody()
         HorizontalGroup:new{
             align = "top",
             labelled(_("Top & bottom margins"), UI.choices(tbs, closest(TB_MARGINS, configurable.t_page_margin).id,
-                col_w, UI.H(64), function(opt)
+                col_w, UI.H(72), function(opt)
                     Presets.setMargins(self.ui, nil, opt.id)
                     self:peek()
                 end)),
             HorizontalSpan:new{ width = col_gap },
             labelled(_("Left & right margins"), UI.choices(lrs, closest(LR_MARGINS, h_margin).id,
-                col_w, UI.H(64), function(opt)
+                col_w, UI.H(72), function(opt)
                     Presets.setMargins(self.ui, opt.id, nil)
                     self:refresh()
                 end)),
@@ -445,7 +451,7 @@ end
 function Sheet:panelHeight()
     if not self.panel_h then
         local tallest = math.max(self:buildTextBody():getSize().h, self:buildPageBody():getSize().h)
-        self.panel_h = D(2) + D(18) + UI.H(48) + D(18) + tallest + D(20)
+        self.panel_h = D(2) + D(18) + UI.H(44) + 2 * D(UI.style.border) + D(18) + tallest + D(22)
     end
     return self.panel_h
 end
@@ -455,8 +461,8 @@ function Sheet:buildPanel()
         { text = _("Text"), selected = self.tab == "text", callback = function() self:setTab("text") end },
         { text = _("Page"), selected = self.tab == "page", callback = function() self:setTab("page") end },
     } }, D(246), UI.H(44))
-    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), UI.H(44))
-    local bar = Geom:new{ w = self.content_w, h = UI.H(48) }
+    local done = UI.button({ text = _("Done"), callback = function() self:onClose() end })
+    local bar = Geom:new{ w = self.content_w, h = done:getSize().h }
     local body = self.tab == "text" and self:buildTextBody() or self:buildPageBody()
     return FrameContainer:new{
         width = self.dimen.w,

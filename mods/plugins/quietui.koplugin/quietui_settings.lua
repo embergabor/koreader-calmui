@@ -54,19 +54,17 @@ function Settings:buildSync()
         status = _("Not logged in")
         detail = _("Log in to keep your reading position across devices.")
     end
-    local button = UI.group({ {
-        {
-            text = username and _("Log out") or _("Log in"),
-            callback = function()
-                if username then
-                    Sync.logout()
-                    self:refresh()
-                else
-                    self:showLogin()
-                end
-            end,
-        },
-    } }, D(112), UI.H(44))
+    local button = UI.button({
+        text = username and _("Log out") or _("Log in"),
+        callback = function()
+            if username then
+                Sync.logout()
+                self:refresh()
+            else
+                self:showLogin()
+            end
+        end,
+    })
     local dimen = Geom:new{ w = self.content_w, h = D(52) }
     return VerticalGroup:new{
         align = "left",
@@ -88,7 +86,7 @@ function Settings:buildSync()
 end
 
 function Settings:update()
-    local done = UI.group({ { { text = _("Done"), callback = function() self:onClose() end } } }, D(96), UI.H(44))
+    local done = UI.button({ text = _("Done"), callback = function() self:onClose() end })
     local bar = Geom:new{ w = self.content_w, h = D(48) }
     local panel = FrameContainer:new{
         width = self.dimen.w,

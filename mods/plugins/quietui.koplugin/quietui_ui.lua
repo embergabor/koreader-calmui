@@ -27,7 +27,7 @@ local STYLES = {
     thin = { border = 1, rule = 1, radius = 12, height = 1, track = 8, knob = 26, knob_border = 2, dot = 10, stroke = 1.5 },
     slim = { border = 1, rule = 1, radius = 8, height = 0.82, track = 8, knob = 24, knob_border = 2, dot = 10, stroke = 1.5 },
     open = { border = 1, rule = 0, radius = 8, height = 0.82, track = 8, knob = 24, knob_border = 2, dot = 10, stroke = 1.5 },
-    hairline = { border = 0.5, rule = 0.5, radius = 8, height = 0.82, track = 6, knob = 24, knob_border = 1, dot = 10, stroke = 1 },
+    hairline = { border = 0.5, rule = 0.5, radius = 8, height = 1, track = 6, knob = 24, knob_border = 1, dot = 10, stroke = 1 },
 }
 UI.style = STYLES.current
 
@@ -246,8 +246,26 @@ function UI.group(rows, width, cell_height)
     return Group:new{ rows = rows, width = width, cell_height = cell_height }
 end
 
---- One row of options, exactly one selected.
+--- One button, as wide as its content plus padding. Takes the same fields as a cell.
+function UI.button(cell, height, pad)
+    local content = cell.content and cell.content(BLACK)
+        or UI.text(cell.text, cell.face or UI.sans(17, 700))
+    local width = content:getSize().w + 2 * D(pad or 18) + 2 * D(UI.style.border)
+    return UI.group({ { cell } }, width, height or UI.H(44))
+end
+
+--- One row of options, exactly one selected. Without a width, cells are as wide as
+-- the longest label plus padding.
 function UI.choices(options, selected_id, width, cell_height, on_pick)
+    if not width then
+        local widest = 0
+        for __, opt in ipairs(options) do
+            if opt.label then
+                widest = math.max(widest, UI.text(opt.label, opt.face or UI.sans(17, 700)):getSize().w)
+            end
+        end
+        width = #options * (widest + 2 * D(16)) + (#options - 1) * D(UI.style.rule) + 2 * D(UI.style.border)
+    end
     local row = {}
     for __, opt in ipairs(options) do
         table.insert(row, {

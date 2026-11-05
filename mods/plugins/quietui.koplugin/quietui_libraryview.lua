@@ -42,10 +42,10 @@ local SORTS = {
 }
 
 -- Board pixels, from the design.
-local HEADER_H, FOOTER_H = 76, 56
+local HEADER_H, HEADER_TOP, FOOTER_H = 90, 14, 56
 local SIDE = 32
-local TILE_W, GRID_COL_GAP, GRID_ROW_GAP, GRID_PAD = 144, 20, 22, 24
-local COVER_H, TILE_TEXT_H, TILE_GAP = 196, 36, 8
+local GRID_COL_GAP, GRID_ROW_GAP, GRID_PAD = 20, 22, 24
+local COVER_RATIO, TITLE_H, PROGRESS_H, TILE_GAP = 1.36, 44, 18, 8 -- two lines of title
 local LIST_PAD, LIST_ROW_H = 8, 66
 local AUTHOR_H, SERIES_H = 44, 30
 
@@ -61,10 +61,10 @@ function LibraryView:init()
     self.sort = G_reader_settings:readSetting("quietui_sort", "recent")
     self.view = G_reader_settings:readSetting("quietui_view", "grid")
     self.content_w = self.dimen.w - 2 * D(SIDE)
-    -- As many columns as fit; bigger screens show more books.
-    self.cols = math.max(3, math.floor((self.content_w + D(GRID_COL_GAP)) / (D(TILE_W) + D(GRID_COL_GAP))))
+    self.cols = self.settings.library_columns or 4
     self.cover_w = math.floor((self.content_w - (self.cols - 1) * D(GRID_COL_GAP)) / self.cols)
-    self.cover_specs = { max_cover_w = self.cover_w, max_cover_h = D(COVER_H) }
+    self.cover_h = math.floor(self.cover_w * COVER_RATIO)
+    self.cover_specs = { max_cover_w = self.cover_w, max_cover_h = self.cover_h }
     self.covers = {}
 
     local corner = Geom:new{ x = 0, y = 0, w = math.floor(self.dimen.w * 0.15), h = math.floor(self.dimen.h * 0.1) }
@@ -92,7 +92,7 @@ function LibraryView:bookRows(books)
     local rows, current = {}, nil
     for __, book in ipairs(books) do
         if not current or #current.books == self.cols then
-            current = { kind = "grid", h = COVER_H + TILE_GAP + TILE_TEXT_H, books = {} }
+            current = { kind = "grid", h = self.cover_h / D(1000) * 1000 + TILE_GAP + TITLE_H + PROGRESS_H, books = {} }
             table.insert(rows, current)
         end
         table.insert(current.books, book)
@@ -206,9 +206,9 @@ function LibraryView:drawnCover(book, w, h)
         align = "left",
         TextBoxWidget:new{
             text = book.title,
-            face = UI.face(path, 18),
+            face = UI.face(path, 22),
             width = inner_w,
-            height = inner_h - D(40),
+            height = inner_h - D(48),
             height_overflow_show_ellipsis = true,
             fgcolor = fg,
             bgcolor = bg,
@@ -318,13 +318,24 @@ function LibraryView:gridRow(row)
     for i, book in ipairs(row.books) do
         if i > 1 then table.insert(group, HorizontalSpan:new{ width = D(GRID_COL_GAP) }) end
         local w = self.cover_w
-        table.insert(group, UI.tappable(VerticalGroup:new{
+        local title = TextBoxWidget:new{
+            text = book.title,
+            face = UI.sans(15, 700),
+            width = w,
+            height = D(TITLE_H),
+            height_adjust = true,
+            height_overflow_show_ellipsis = true,
+        }
+        local tile = VerticalGroup:new{
             align = "left",
-            UI.pinned(self:coverWidget(book, w, D(COVER_H)), D(COVER_H), w),
+            UI.pinned(self:coverWidget(book, w, self.cover_h), self.cover_h, w),
             VerticalSpan:new{ width = D(TILE_GAP) },
-            UI.pinned(UI.text(book.title, UI.sans(15, 700), nil, w), D(19), w),
-            UI.pinned(UI.text(book.progress, UI.sans(14)), D(17), w),
-        }, function() self:open(book) end))
+            title,
+            UI.pinned(UI.text(book.progress, UI.sans(14)), D(PROGRESS_H), w),
+            -- Every tile takes the same room, whether its title needed one line or two.
+            VerticalSpan:new{ width = math.max(0, D(TITLE_H) - title:getSize().h) },
+        }
+        table.insert(group, UI.tappable(tile, function() self:open(book) end))
     end
     return group
 end
@@ -381,7 +392,7 @@ end
 -- Page ----------------------------------------------------------------------
 
 function LibraryView:buildHeader()
-    local sort = UI.choices(SORTS, self.sort, D(216), UI.H(44), function(opt)
+    local sort = UI.choices(SORTS, self.sort, nil, UI.H(44), function(opt)
         self.sort = opt.id
         G_reader_settings:saveSetting("quietui_sort", opt.id)
         self:rebuild()
@@ -394,33 +405,30 @@ function LibraryView:buildHeader()
         G_reader_settings:saveSetting("quietui_view", opt.id)
         self:rebuild()
     end)
-    local cog = UI.group({ {
-        {
-            content = function()
-                return IconWidget:new{ icon = "appbar.settings", width = D(26), height = D(26) }
-            end,
-            callback = function()
-                UIManager:show(require("quietui_settings"):new{ settings = self.settings }, "ui")
-            end,
-        },
-    } }, D(48), UI.H(44))
-    local back = UI.group({ {
-        {
-            content = function()
-                return HorizontalGroup:new{
-                    align = "center",
-                    IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
-                    HorizontalSpan:new{ width = D(2) },
-                    UI.text(_("Back to Kobo"), UI.sans(16, 700)),
-                }
-            end,
-            callback = function() self.run_action("exit") end,
-        },
-    } }, D(140), UI.H(40))
-    local dimen = Geom:new{ w = self.dimen.w - D(16) - D(24), h = D(HEADER_H) - D(2) }
+    local cog = UI.button({
+        content = function()
+            return IconWidget:new{ icon = "appbar.settings", width = D(26), height = D(26) }
+        end,
+        callback = function()
+            UIManager:show(require("quietui_settings"):new{ settings = self.settings }, "ui")
+        end,
+    }, UI.H(44), 12)
+    local back = UI.button({
+        content = function()
+            return HorizontalGroup:new{
+                align = "center",
+                IconWidget:new{ icon = "chevron.left", width = D(20), height = D(20) },
+                HorizontalSpan:new{ width = D(2) },
+                UI.text(_("Back to Kobo"), UI.sans(16, 700)),
+            }
+        end,
+        callback = function() self.run_action("exit") end,
+    }, UI.H(44), 14)
+    local dimen = Geom:new{ w = self.dimen.w - 2 * D(SIDE), h = D(HEADER_H) - D(HEADER_TOP) - D(2) }
     return VerticalGroup:new{
+        VerticalSpan:new{ width = D(HEADER_TOP) },
         HorizontalGroup:new{
-            HorizontalSpan:new{ width = D(16) },
+            HorizontalSpan:new{ width = D(SIDE) },
             OverlapGroup:new{
                 dimen = dimen,
                 LeftContainer:new{

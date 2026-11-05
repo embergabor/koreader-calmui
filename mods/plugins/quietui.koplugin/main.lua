@@ -61,6 +61,53 @@ function DictQuickLookup:init()
     removeIcons(self)
 end
 
+-- The USB question, in our style. The rest is stock.
+local MassStorage = require("ui/elements/mass_storage")
+local massStorageStart = MassStorage.start
+function MassStorage:start(with_confirmation)
+    local ask = with_confirmation
+    if ask == nil then ask = self:requireConfirmation() end
+    if not (ask and Device:canToggleMassStorage() and self:isEnabled()) then
+        return massStorageStart(self, with_confirmation)
+    end
+    self.usbms_widget = require("quietui_dialog"):new{
+        title = _("Connect to computer?"),
+        text = _("You can't read while your Kobo is connected."),
+        buttons = {
+            { text = _("Not now"), callback = function() self.usbms_widget = nil end },
+            {
+                text = _("Connect"),
+                selected = true,
+                callback = function()
+                    self.usbms_widget = nil
+                    massStorageStart(self, false)
+                end,
+            },
+        },
+    }
+    UIManager:show(self.usbms_widget)
+end
+
+-- Sleep shows the book's cover at its full resolution (see applyDefaults); dither it,
+-- so its gradients don't band on the screen's 16 grays.
+-- A book without a cover would fall back to KOReader's logo: leave the page on screen instead.
+local Screensaver = require("ui/screensaver")
+local screensaverSetup = Screensaver.setup
+function Screensaver:setup(event, event_message)
+    screensaverSetup(self, event, event_message)
+    if self.screensaver_type == "random_image" and not G_reader_settings:has("screensaver_dir") then
+        self.screensaver_type = "disable"
+        self.image_file = nil
+        self.show_message = false
+    end
+end
+
+local ScreenSaverWidget = require("ui/widget/screensaverwidget")
+function ScreenSaverWidget:onShow()
+    UIManager:setDirty(self, function() return "full", self[1].dimen, true end)
+    return true
+end
+
 -- Same as stock, except for the card shown while the book loads. A seamless reload after a settings
 -- change stays stock: its invisible message keeps a widget on screen, or KOReader would quit.
 local stockShowReaderCoroutine = ReaderUI.showReaderCoroutine
@@ -131,6 +178,12 @@ local function applyDefaults()
     if keep.kosync then
         require("quietui_sync").reapply()
     end
+
+    -- Sleep: the current book's cover, whole and undistorted, with no "Sleeping" box.
+    G:saveSetting("screensaver_type", "cover")
+    G:makeFalse("screensaver_show_message")
+    G:makeFalse("screensaver_stretch_images")
+    G:saveSetting("screensaver_img_background", "white")
 
     G:saveSetting("reader_footer_mode", 1)
     -- Footer as in the design: a 56 board pixel band with 15 pixel text, in the units ReaderFooter
