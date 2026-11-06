@@ -22,12 +22,12 @@ fetch_package() {
 }
 
 # koreader_problems: prints what's wrong with KOReader on the Kobo, and nothing if it's fine.
-# The ota folder is left out because KOReader's updater changes it.
+# Left out: the ota folder, which KOReader's updater changes, and the marker its first start removes.
 koreader_problems() {
     [ -f "$KOREADER/git-rev" ] || { echo "KOReader isn't installed"; return 0; }
     have="$(cat "$KOREADER/git-rev")"
     [ "$have" = "$KOREADER_REV" ] || echo "KOReader is $have, Quiet UI is built for $KOREADER_REV"
-    tar tzf "$KOREADER_PKG" | grep -v '^koreader/ota/' | while IFS= read -r file; do
+    tar tzf "$KOREADER_PKG" | grep -Ev '^koreader/(ota/|update_once\.marker$)' | while IFS= read -r file; do
         [ -f "$KOBO/.adds/$file" ] || echo "KOReader file missing: $file"
     done
     find "$KOREADER" -name 'FSCK*' 2>/dev/null | while IFS= read -r file; do
