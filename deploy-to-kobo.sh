@@ -1,6 +1,7 @@
 #!/bin/sh
 # Install Quiet UI (plugin, patches, fonts, dictionary) on the Kobo's KOReader.
 #   ./deploy-to-kobo.sh [--no-eject]     over USB, then eject. KOReader unpacks it at its next start.
+#                                        Checks KOReader first, and installs it and NickelMenu if missing.
 #   ./deploy-to-kobo.sh --check          after that, with the Kobo connected again: did it all arrive?
 #   ./deploy-to-kobo.sh --wifi [address | elipsa | libra] [--all]
 #       Over Wi-Fi, then restart KOReader. Needs one USB install first, and Updates over Wi-Fi
@@ -18,7 +19,8 @@ if [ "$1" = "--wifi" ]; then
     exec tools/deploy-wifi.sh "$@"
 fi
 
-[ -d "$KOREADER/plugins" ] || { echo "Kobo not mounted (or KOReader not installed) at $KOBO" >&2; exit 1; }
+[ -d "$KOBO/.kobo" ] || { echo "Kobo not mounted at $KOBO" >&2; exit 1; }
+. tools/koreader-base.sh
 
 # The Mac's FAT driver can write directory entries the Kobo's disk check rejects when it's
 # unplugged: it renames the file to FSCK0000.000, so the plugin no longer loads. Only a few
@@ -27,6 +29,13 @@ fi
 if [ "$1" = "--check" ]; then
     problems=0
     report() { echo "PROBLEM: $*"; problems=$((problems + 1)); }
+    [ ! -f "$KOBO/.kobo/KoboRoot.tgz" ] || report "NickelMenu not applied yet: eject the Kobo and let it restart"
+    [ -f "$KOBO/.adds/nm/koreader" ] || report "the NickelMenu entry for KOReader is missing"
+    fetch_package "$KOREADER_PKG" "$KOREADER_URL" "$KOREADER_SHA"
+    koreader_problems > /tmp/kobo-check.$$
+    while IFS= read -r line; do report "$line"; done < /tmp/kobo-check.$$
+    rm -f /tmp/kobo-check.$$
+    [ -f "$KOREADER/git-rev" ] || { echo "$problems problem(s). Nothing was changed."; exit 1; }
     [ ! -f "$KOREADER/ota/update.tar.xz" ] || report "not unpacked yet: open KOReader on the Kobo first"
     for found in $(find "$KOREADER/plugins" "$KOREADER/patches" "$KOREADER/settings/SSH" "$KOBO/fonts" "$KOREADER/data/dict" -name 'FSCK*' 2>/dev/null); do
         report "renamed by the disk check: $found"
@@ -58,6 +67,8 @@ if [ "$1" = "--check" ]; then
     exit 0
 fi
 
+ensure_koreader
+
 # The key updates over Wi-Fi log in with
 [ -f "$SSH_KEY" ] || ssh-keygen -q -t ed25519 -N "" -C "kobostuff deploy" -f "$SSH_KEY"
 
@@ -87,6 +98,7 @@ COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS
 find "$KOREADER/ota" "$KOBO/fonts" "$KOREADER/data/dict" -name '._*' -delete
 sync
 echo "Copied to $KOBO. Open KOReader from the Kobo's home screen; it unpacks at that start."
+[ ! -f "$KOBO/.kobo/KoboRoot.tgz" ] || echo "First, after the eject, the Kobo restarts to apply NickelMenu. KOReader is then in its main menu."
 echo "Then connect the Kobo again and run: ./deploy-to-kobo.sh --check"
 
 [ "$1" = "--no-eject" ] || diskutil eject "$KOBO"
