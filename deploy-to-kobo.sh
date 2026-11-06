@@ -10,7 +10,7 @@
 #       along with --all.
 set -e
 cd "$(dirname "$0")"
-KOBO=/Volumes/KOBOeReader
+KOBO="${KOBO:-/Volumes/KOBOeReader}" # Depot passes the volume it found, in case there are two Kobos
 KOREADER="$KOBO/.adds/koreader"
 SSH_KEY="$HOME/.ssh/id_kobo"
 
@@ -95,7 +95,9 @@ mkdir -p "$KOBO/fonts" "$KOREADER/data/dict"
 COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS_Store' --include '*.ttf' --include '*.otf' --exclude '*' \
     fonts/ "$KOBO/fonts/"
 COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS_Store' dict/ "$KOREADER/data/dict/"
-find "$KOREADER/ota" "$KOBO/fonts" "$KOREADER/data/dict" -name '._*' -delete
+# macOS adds these for new folders too, so the whole .adds tree is cleaned here, last.
+find "$KOBO/.adds" "$KOBO/fonts" -name '._*' -type f -delete
+rm -f "$KOBO/.kobo/._KoboRoot.tgz"
 sync
 echo "Copied to $KOBO. Open KOReader from the Kobo's home screen; it unpacks at that start."
 [ ! -f "$KOBO/.kobo/KoboRoot.tgz" ] || echo "First, after the eject, the Kobo restarts to apply NickelMenu. KOReader is then in its main menu."

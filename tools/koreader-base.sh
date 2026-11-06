@@ -56,7 +56,6 @@ ensure_koreader() {
         mkdir -p "$KOBO/.adds/nm"
         printf '%s\n' "$NICKELMENU_ENTRY" > "$KOBO/.adds/nm/koreader"
     fi
-    find "$KOBO/.adds" -name '._*' -type f -delete
     problems="$(koreader_problems)"
     if [ -n "$problems" ]; then
         echo "$problems" >&2
