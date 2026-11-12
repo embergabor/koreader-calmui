@@ -32,58 +32,32 @@ PDFs get their own sheet with Fit, Contrast and Full refresh.
   <img src="docs/screenshots/settings.png" width="24%" alt="Settings: Wi-Fi, sleep, reading statistics, calibre wireless, sync">
 </p>
 
-## Devices
+## Requirements
 
-Calm UI has been tested on these devices, both on Kobo firmware 4.38:
-
-- **Kobo Elipsa 2E**
-- **Kobo Libra 2**
-
-Its layout follows the screen's size and density, so other Kobos with firmware 4.x should work, but haven't been tried. Firmware 5.x needs a different KOReader build and hasn't been tested.
-
-Calm UI is built for one specific KOReader version, because it changes parts of KOReader's interface directly. Use the version below; a different one may not work.
-
-| Needed | Version | Download |
-| --- | --- | --- |
-| KOReader | nightly `v2026.07.2-293-gc8eb592` | [koreader-kobo-v2026.07.2-293-gc8eb592_2026-10-27.targz](https://github.com/koreader/koreader/releases/download/ota/koreader-kobo-v2026.07.2-293-gc8eb592_2026-10-27.targz) |
-| NickelMenu, which adds KOReader to the Kobo's menu | `v0.6.0` | [KoboRoot.tgz](https://github.com/pgaskin/NickelMenu/releases/download/v0.6.0/KoboRoot.tgz) |
+- **KOReader**, installed on the Kobo with a way to open it, such as NickelMenu. KOReader's [Kobo installation guide](https://github.com/koreader/koreader/wiki/Installation-on-Kobo-devices) covers this.
+- **The right KOReader version:** nightly [`v2026.07.2-293-gc8eb592`](https://github.com/koreader/koreader/releases/download/ota/koreader-kobo-v2026.07.2-293-gc8eb592_2026-10-27.targz). Calm UI changes parts of KOReader's interface directly, so a different version may not work.
+- **A Kobo with firmware 4.x.** Calm UI has been tested on the Kobo Elipsa 2E and Kobo Libra 2, both on firmware 4.38. Its layout follows the screen's size and density, so other Kobos should work but haven't been tried.
 
 ## Install
 
-You copy files to the Kobo over USB. Connect it to your computer and tap **Connect** on the Kobo's screen.
-
-The folders you need, `.kobo` and `.adds`, are hidden:
-
-- **Mac:** in Finder, press **Cmd + Shift + .** to show hidden folders.
-- **Windows:** in File Explorer, choose **View → Show → Hidden items**.
-
-> [!WARNING]
-> Only ever copy *files into* the Kobo's existing folders. Never drag a whole folder such as `.kobo` or `.adds` from your computer onto the Kobo: your computer may replace the Kobo's folder, and everything in it, including your books' database.
-
-### 1. Install KOReader and NickelMenu
-
-Skip this step if KOReader is already on your Kobo, but check that it's the version above.
-
-1. **NickelMenu:** download `KoboRoot.tgz` from the table above and copy it into the `.kobo` folder on the Kobo. Eject the Kobo. It installs NickelMenu and restarts.
-2. **KOReader:** download the KOReader file from the table above and unpack it. On a Mac, rename it to end in `.tar.gz` and double-click it. On Windows, use [7-Zip](https://www.7-zip.org). You get a folder named `koreader`. Connect the Kobo again, and copy that `koreader` folder into `.adds` on the Kobo. If there's no `.adds` folder, create it first.
-3. **Menu entry:** create a folder named `nm` inside `.adds`, if it isn't there already. Download [`install/nm/koreader`](install/nm/koreader) from this repository and copy it into `.adds/nm`. This adds KOReader to NickelMenu.
-
-### 2. Install Calm UI
-
 1. Download `update.tar.xz` from the [latest release](../../releases/latest).
-2. Copy it into `.adds/koreader/ota` on the Kobo. Keep the name `update.tar.xz`.
-3. Eject the Kobo, open NickelMenu at the bottom right of the home screen, and choose **KOReader**.
+2. Connect the Kobo to your computer and tap **Connect** on the Kobo's screen.
+3. Copy `update.tar.xz` into `.adds/koreader/ota` on the Kobo. Keep its name.
+4. Eject the Kobo and open KOReader.
 
 KOReader unpacks Calm UI as it starts. You'll briefly see "Updating KOReader" and "Update successful", which is KOReader's own installer at work, and then the library.
 
-If KOReader was already open when you connected the Kobo, Calm UI only unpacks at KOReader's next start. Close KOReader and open it again from NickelMenu. Once Calm UI is installed, it does this restart for you, so later updates need no extra step.
+If KOReader was already open when you connected the Kobo, Calm UI only unpacks at KOReader's next start, so close KOReader and open it again. Once Calm UI is installed, it does this restart for you.
+
+The `.adds` folder is hidden. On a Mac, press **Cmd + Shift + .** in Finder to show it. On Windows, choose **View → Show → Hidden items** in File Explorer.
+
+> [!WARNING]
+> Copy only the file. Never drag a whole folder such as `.adds` from your computer onto the Kobo: your computer may replace the Kobo's folder and everything in it.
 
 > [!NOTE]
 > Why one file? Calm UI is many small files. Copied one by one from a computer, a file can occasionally be renamed by the Kobo's disk check when you unplug it, and Calm UI then fails to load. In one package, KOReader unpacks the files on the Kobo itself.
 
-### On a Mac: one command
-
-If you have a Mac, `deploy-to-kobo.sh` does all of the above. Connect the Kobo, tap **Connect**, then run:
+**On a Mac**, you can install from a copy of this repository instead. Connect the Kobo, tap **Connect**, and run:
 
 ```bash
 git clone https://github.com/embergabor/koreader-calmui.git
@@ -93,7 +67,7 @@ git clone https://github.com/embergabor/koreader-calmui.git
 cd koreader-calmui && ./deploy-to-kobo.sh
 ```
 
-It downloads the exact KOReader and NickelMenu versions, checks their checksums, installs whatever's missing and copies Calm UI. It doesn't replace a different KOReader version; it only reports it. Follow what it prints. Afterwards, connect the Kobo again and run `./deploy-to-kobo.sh --check` to confirm that everything arrived.
+On a Kobo without KOReader, this also sets up KOReader at the version above, and NickelMenu to open it. Afterwards, connect the Kobo again and run `./deploy-to-kobo.sh --check` to confirm that everything arrived.
 
 ## Optional extras
 
