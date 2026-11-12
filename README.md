@@ -117,3 +117,7 @@ tools/make-package.sh dist/update.tar.xz
 **Updates over Wi-Fi.** A Kobo that was set up with `deploy-to-kobo.sh` has an extra **Updates over Wi-Fi** row in the cogwheel. Turn it on, and `./deploy-to-kobo.sh --wifi <address>` installs from your Mac without a cable, then restarts KOReader. It logs in with a key that only your Mac has, and it turns off again when the Kobo sleeps.
 
 Development uses the macOS KOReader emulator and a KOReader source checkout at the same version. Neither is in this repository. `run-emulator.sh` expects them in `emulator/` and `src/`, and `--libra` emulates the Libra 2's screen.
+
+## License
+
+Calm UI is free software under the [GNU Affero General Public License v3.0](LICENSE), the same license as KOReader.
