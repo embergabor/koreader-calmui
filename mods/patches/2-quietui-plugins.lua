@@ -1,4 +1,4 @@
--- Only the stock plugins Quiet UI uses are ever loaded (settings.lua's keep_plugins).
+-- Only the stock plugins Calm UI uses are ever loaded (settings.lua's keep_plugins).
 -- Runs before KOReader loads its plugins, so a change takes effect at this very start.
 local lfs = require("libs/libkoreader-lfs")
 

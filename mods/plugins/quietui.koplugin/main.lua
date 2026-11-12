@@ -1,5 +1,5 @@
 --[[--
-Quiet UI: KOReader reduced to two screens.
+Calm UI: KOReader reduced to two screens.
 
 Library: replaces the file manager's content (see setupLayout below).
 Reader: one tap opens the sheet, swipes turn pages, nothing else on screen.

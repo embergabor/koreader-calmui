@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install Quiet UI (plugin, patches, fonts, dictionary) on the Kobo's KOReader.
+# Install Calm UI (plugin, patches, fonts, dictionary) on the Kobo's KOReader.
 #   ./deploy-to-kobo.sh [--no-eject]     over USB, then eject. KOReader unpacks it at its next start.
 #                                        Checks KOReader first, and installs it and NickelMenu if missing.
 #   ./deploy-to-kobo.sh --check          after that, with the Kobo connected again: did it all arrive?
@@ -74,27 +74,24 @@ ensure_koreader
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-mkdir -p "$STAGE/koreader/plugins" "$STAGE/koreader/patches" "$STAGE/koreader/data" "$STAGE/koreader/settings/SSH"
-cp -R mods/plugins/quietui.koplugin "$STAGE/koreader/plugins/"
-cp -R mods/patches/. "$STAGE/koreader/patches/"
-# USB storage screen: same program, smaller text, no giant logo
-cp mods/usbms/KoboUSBMS.tar.gz "$STAGE/koreader/data/"
-cp "$SSH_KEY.pub" "$STAGE/koreader/settings/SSH/authorized_keys"
-# Never an ota/package.index in here: the updater would take it as KOReader's file list and
-# delete whatever isn't on it.
-COPYFILE_DISABLE=1 tar --format ustar --no-xattrs --uid 0 --gid 0 --exclude '._*' --exclude '.DS_Store' \
-    -cJf "$STAGE/update.tar.xz" -C "$STAGE" koreader
+tools/make-package.sh "$STAGE/update.tar.xz" "$SSH_KEY.pub"
 mkdir -p "$KOREADER/ota"
 COPYFILE_DISABLE=1 cp "$STAGE/update.tar.xz" "$KOREADER/ota/update.tar.xz"
 
-# Plugins replaced by Quiet UI
+# Plugins replaced by Calm UI
 rm -rf "$KOREADER/plugins/readerbar.koplugin" "$KOREADER/plugins/typolibrary.koplugin"
 
 # Only rewritten when changed. --inplace: rsync's temporary files clash with FAT's short names.
-mkdir -p "$KOBO/fonts" "$KOREADER/data/dict"
-COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS_Store' --include '*.ttf' --include '*.otf' --exclude '*' \
-    fonts/ "$KOBO/fonts/"
-COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS_Store' dict/ "$KOREADER/data/dict/"
+# Both are optional, and not in git: fonts/ goes to the Kobo's fonts folder, dict/ to KOReader's.
+if [ -d fonts ]; then
+    mkdir -p "$KOBO/fonts"
+    COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS_Store' --include '*.ttf' --include '*.otf' --exclude '*' \
+        fonts/ "$KOBO/fonts/"
+fi
+if [ -d dict ]; then
+    mkdir -p "$KOREADER/data/dict"
+    COPYFILE_DISABLE=1 rsync -r --inplace --size-only --exclude '._*' --exclude '.DS_Store' dict/ "$KOREADER/data/dict/"
+fi
 # macOS adds these for new folders too, so the whole .adds tree is cleaned here, last.
 find "$KOBO/.adds" "$KOBO/fonts" -name '._*' -type f -delete
 rm -f "$KOBO/.kobo/._KoboRoot.tgz"

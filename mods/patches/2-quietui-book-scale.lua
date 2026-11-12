@@ -19,7 +19,7 @@ function CreDocument:setFontSize(scaled)
     local unit = Device.screen:scaleBySize(100000) / 100000
     local size = math.floor(scaled / unit)
     if size <= (scaled - 1) / unit then
-        size = scaled / unit -- a fractional size from before Quiet UI
+        size = scaled / unit -- a fractional size from before Calm UI
     end
     return setFontSize(self, bookScale(size))
 end

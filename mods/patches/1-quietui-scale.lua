@@ -1,6 +1,6 @@
 -- Sizes KOReader's stock screens by physical size instead of screen width.
 -- Stock uses shortSide / 600, so on the Elipsa's 10.3" screen every popup, keyboard and icon comes
--- out far too large. This uses the screen's density, so they match Quiet UI's own screens.
+-- out far too large. This uses the screen's density, so they match Calm UI's own screens.
 -- Runs before anything measures itself. Book text and margins keep their old sizes
 -- (see 2-quietui-book-scale.lua).
 local fb = require("ffi/framebuffer")

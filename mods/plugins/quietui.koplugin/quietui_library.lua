@@ -20,7 +20,9 @@ local UNSORTED = "Unsorted"
 local NAME_PARTICLES = { le = true, la = true, de = true, du = true, van = true, von = true, der = true }
 
 local function stripExtension(name)
-    return (name:gsub("%.kepub%.epub$", ""):gsub("%.[^.]+$", ""))
+    local stem, kepub = name:gsub("%.kepub%.epub$", "")
+    if kepub > 0 then return stem end
+    return (name:gsub("%.[^.]+$", ""))
 end
 
 -- Undo calibre's filename mangling: "Odyssey, The" -> "The Odyssey",

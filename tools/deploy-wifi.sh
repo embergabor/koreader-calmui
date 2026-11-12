@@ -45,7 +45,7 @@ mv "$NAMES_FILE.new" "$NAMES_FILE"
 echo "Updating the $NAME at $HOST"
 KOREADER_REV="$(sed -n 's/^KOREADER_REV=//p' tools/koreader-base.sh)"
 HAVE_REV="$(kobo "cat $REMOTE_DIR/git-rev" 2>/dev/null || true)"
-[ "$HAVE_REV" = "$KOREADER_REV" ] || echo "Note: KOReader is $HAVE_REV, Quiet UI is built for $KOREADER_REV." >&2
+[ "$HAVE_REV" = "$KOREADER_REV" ] || echo "Note: KOReader is $HAVE_REV, Calm UI is built for $KOREADER_REV." >&2
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT

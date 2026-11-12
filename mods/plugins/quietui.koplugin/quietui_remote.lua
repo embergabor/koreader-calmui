@@ -26,8 +26,10 @@ local function readPid()
     return pid
 end
 
+-- Only on devices set up for it: the USB install from the source folder adds the computer's key.
 function Remote.available()
     return lfs.attributes("dropbear", "mode") == "file"
+        and (lfs.attributes("settings/SSH/authorized_keys", "size") or 0) > 0
 end
 
 function Remote.isRunning()

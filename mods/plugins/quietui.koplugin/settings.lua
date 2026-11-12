@@ -1,4 +1,4 @@
--- Quiet UI: rare options. There is deliberately no screen for these on the device.
+-- Calm UI: rare options. There is deliberately no screen for these on the device.
 -- Edit this file over USB and restart KOReader.
 return {
     -- Per device model. render ("crisp", "smooth" or "book") is a default, used until it's changed

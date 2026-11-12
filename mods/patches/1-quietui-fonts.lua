@@ -1,4 +1,4 @@
--- Adds the font_folders from Quiet UI's settings.lua to KOReader's font search, before fonts load.
+-- Adds the font_folders from Calm UI's settings.lua to KOReader's font search, before fonts load.
 -- On Kobo this list comes from EXT_FONT_DIR, set in koreader.sh. Other platforms ignore it.
 -- With font_report on, also writes what it finds to quietui-fonts.txt in the KOReader folder.
 local ok, settings = pcall(dofile, "plugins/quietui.koplugin/settings.lua")

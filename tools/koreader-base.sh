@@ -1,4 +1,4 @@
-# KOReader and NickelMenu on the Kobo: which versions Quiet UI is built against, how to check them,
+# KOReader and NickelMenu on the Kobo: which versions Calm UI is built against, how to check them,
 # and how to install them over USB. Sourced by deploy-to-kobo.sh.
 
 KOREADER_REV=v2026.07.2-293-gc8eb592_2026-10-27_kobo
@@ -26,7 +26,7 @@ fetch_package() {
 koreader_problems() {
     [ -f "$KOREADER/git-rev" ] || { echo "KOReader isn't installed"; return 0; }
     have="$(cat "$KOREADER/git-rev")"
-    [ "$have" = "$KOREADER_REV" ] || echo "KOReader is $have, Quiet UI is built for $KOREADER_REV"
+    [ "$have" = "$KOREADER_REV" ] || echo "KOReader is $have, Calm UI is built for $KOREADER_REV"
     tar tzf "$KOREADER_PKG" | grep -Ev '^koreader/(ota/|update_once\.marker$)' | while IFS= read -r file; do
         [ -f "$KOBO/.adds/$file" ] || echo "KOReader file missing: $file"
     done

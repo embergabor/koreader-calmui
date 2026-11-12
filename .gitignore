@@ -8,3 +8,4 @@ dict/
 options/
 .kobo-address
 .kobo-addresses
+dist/

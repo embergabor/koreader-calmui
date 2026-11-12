@@ -1,4 +1,4 @@
--- Opens each stock screen still reachable in Quiet UI, one per step, to compare scaling.
+-- Opens each stock screen still reachable in Calm UI, one per step, to compare scaling.
 local UM = require("ui/uimanager")
 local Screen = require("device").screen
 local u = require("apps/reader/readerui").instance
